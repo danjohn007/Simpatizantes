@@ -1,0 +1,36 @@
+# Sistema de Validación de Simpatizantes
+# .gitignore
+
+# Uploads - archivos subidos por usuarios
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Configuración local (si existe)
+config/config.local.php
+
+# Logs
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporal
+tmp/
+temp/
+
+# Backups
+*.bak
+*.backup
+*.sql.gz
+
+# Caché
+cache/
+*.cache

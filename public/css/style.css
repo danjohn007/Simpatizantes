@@ -1,0 +1,291 @@
+/**
+ * Estilos Personalizados
+ * Sistema de Validación de Simpatizantes
+ */
+
+:root {
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --info-color: #17a2b8;
+}
+
+/* Animaciones suaves */
+* {
+    transition: all 0.3s ease;
+}
+
+/* Card hover effects */
+.card:hover {
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15) !important;
+}
+
+/* Botones con gradiente */
+.btn-gradient {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border: none;
+    color: white;
+    font-weight: 500;
+}
+
+.btn-gradient:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Formularios mejorados */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Tablas responsive mejoradas */
+.table {
+    font-size: 0.9rem;
+}
+
+.table thead th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.05);
+}
+
+/* Badges personalizados */
+.badge {
+    padding: 0.35em 0.65em;
+    font-weight: 500;
+}
+
+/* Alerts mejorados */
+.alert {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Sidebar activo */
+.sidebar .nav-link.active {
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color));
+}
+
+/* Loading spinner */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+/* Paginación mejorada */
+.pagination .page-link {
+    color: var(--primary-color);
+    border: 1px solid #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border-color: var(--primary-color);
+}
+
+.pagination .page-link:hover {
+    background-color: rgba(102, 126, 234, 0.1);
+    border-color: var(--primary-color);
+}
+
+/* Modales mejorados */
+.modal-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border-bottom: none;
+}
+
+.modal-header .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+/* Tooltips */
+.tooltip-inner {
+    background-color: #333;
+    color: white;
+}
+
+/* Progress bars */
+.progress {
+    height: 1.5rem;
+    border-radius: 10px;
+}
+
+.progress-bar {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+/* Formulario de captura mejorado */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-control,
+.form-select {
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+}
+
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Cards del dashboard */
+.card {
+    border: none;
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Iconos */
+.bi {
+    vertical-align: middle;
+}
+
+/* Animación de entrada */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.5s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .sidebar,
+    .navbar,
+    .btn,
+    .no-print {
+        display: none !important;
+    }
+    
+    .content-wrapper {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+}
+
+/* Estados de validación */
+.is-valid {
+    border-color: var(--success-color);
+}
+
+.is-invalid {
+    border-color: var(--danger-color);
+}
+
+.valid-feedback {
+    color: var(--success-color);
+}
+
+.invalid-feedback {
+    color: var(--danger-color);
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.3rem solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

@@ -44,6 +44,8 @@ $estatsPorSeccion = $simpatizanteModel->obtenerEstadisticasPorSeccion($filtros);
 $estatsPorCapturista = $simpatizanteModel->obtenerEstadisticasPorCapturista($filtros);
 
 // Obtener actividad diaria (últimos 30 días)
+// Usamos una consulta directa aquí dado que es específica para esta vista
+// En el futuro, esto podría moverse a un método del modelo
 $db = Database::getInstance();
 $sql = "SELECT DATE(created_at) as fecha, COUNT(*) as total 
         FROM simpatizantes 
@@ -273,10 +275,10 @@ include __DIR__ . '/../../app/views/layouts/header.php';
 <?php if (!empty($actividadDiaria) || !empty($estatsPorSeccion) || !empty($estatsPorCapturista)): ?>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Datos para las gráficas
-const dataActividad = <?php echo json_encode($actividadDiaria); ?>;
-const dataSecciones = <?php echo json_encode(array_slice($estatsPorSeccion, 0, 10)); ?>;
-const dataCapturistas = <?php echo json_encode(array_slice($estatsPorCapturista, 0, 10)); ?>;
+// Datos para las gráficas - JSON encoded with security flags
+const dataActividad = <?php echo json_encode($actividadDiaria, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+const dataSecciones = <?php echo json_encode(array_slice($estatsPorSeccion, 0, 10), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+const dataCapturistas = <?php echo json_encode(array_slice($estatsPorCapturista, 0, 10), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
 
 // Gráfica de Actividad
 <?php if (!empty($actividadDiaria)): ?>

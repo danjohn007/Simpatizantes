@@ -556,7 +556,10 @@ function generarPDF() {
     if (tablaSecciones) {
         const tablaClonada1 = tablaSecciones.cloneNode(true);
         tablaClonada1.style.boxShadow = 'none';
-        tablaClonada1.querySelector('.card-body').style.padding = '10px';
+        const cardBody1 = tablaClonada1.querySelector('.card-body');
+        if (cardBody1) {
+            cardBody1.style.padding = '10px';
+        }
         document.getElementById('tabla-secciones-container').appendChild(tablaClonada1);
     }
     
@@ -565,7 +568,10 @@ function generarPDF() {
     if (tablaCapturistas) {
         const tablaClonada2 = tablaCapturistas.cloneNode(true);
         tablaClonada2.style.boxShadow = 'none';
-        tablaClonada2.querySelector('.card-body').style.padding = '10px';
+        const cardBody2 = tablaClonada2.querySelector('.card-body');
+        if (cardBody2) {
+            cardBody2.style.padding = '10px';
+        }
         document.getElementById('tabla-capturistas-container').appendChild(tablaClonada2);
     }
     

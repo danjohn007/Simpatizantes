@@ -25,9 +25,22 @@ define('APP_VERSION', '1.0.0');
 // Configuración de URL Base (se detecta automáticamente)
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-$baseDir = str_replace('\\', '/', dirname($scriptName));
-$baseDir = ($baseDir === '/' || $baseDir === '//') ? '' : $baseDir;
+
+// Determinar el directorio base del proyecto de forma consistente
+// Usando la ruta del archivo config.php como referencia
+$configPath = str_replace('\\', '/', __DIR__);
+$documentRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? '');
+
+// Calcular el path relativo desde document root hasta la raíz del proyecto
+if (!empty($documentRoot) && strpos($configPath, $documentRoot) === 0) {
+    // El directorio del proyecto es el padre del directorio config
+    $projectPath = dirname($configPath);
+    $baseDir = str_replace($documentRoot, '', $projectPath);
+    $baseDir = ($baseDir === '/' || $baseDir === '' || $baseDir === '//') ? '' : $baseDir;
+} else {
+    // Fallback si no se puede determinar
+    $baseDir = '';
+}
 
 define('BASE_URL', $protocol . '://' . $host . $baseDir);
 define('BASE_PATH', dirname(__DIR__));

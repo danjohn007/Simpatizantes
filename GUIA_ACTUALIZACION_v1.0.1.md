@@ -340,7 +340,7 @@ Una vez completada la actualización exitosamente:
 ---
 
 **Versión:** 1.0.1  
-**Última actualización:** 24 de Octubre, 2024
+**Última actualización:** 24 de octubre, 2024
 
 ---
 

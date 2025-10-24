@@ -1,6 +1,6 @@
 # Changelog - Versión 1.0.1
 
-**Fecha de Actualización:** 24 de Octubre, 2024
+**Fecha de Actualización:** 24 de octubre, 2024
 
 ## 🎯 Resumen de Cambios
 
@@ -400,5 +400,5 @@ Para reportar problemas o solicitar ayuda:
 ---
 
 **Versión:** 1.0.1  
-**Fecha de Lanzamiento:** 24 de Octubre, 2024  
+**Fecha de Lanzamiento:** 24 de octubre, 2024  
 **Estado:** Estable - Producción

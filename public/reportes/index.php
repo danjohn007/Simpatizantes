@@ -414,15 +414,26 @@ function exportarPDF() {
         // Esperar a que ambas bibliotecas se carguen
         let html2canvasLoaded = false;
         let jspdfLoaded = false;
+        let loadError = false;
         
         script1.onload = function() {
             html2canvasLoaded = true;
-            if (jspdfLoaded) generarPDF();
+            if (jspdfLoaded && !loadError) generarPDF();
+        };
+        
+        script1.onerror = function() {
+            loadError = true;
+            alert('Error al cargar la biblioteca html2canvas. Por favor, verifique su conexión a internet e intente nuevamente.');
         };
         
         script2.onload = function() {
             jspdfLoaded = true;
-            if (html2canvasLoaded) generarPDF();
+            if (html2canvasLoaded && !loadError) generarPDF();
+        };
+        
+        script2.onerror = function() {
+            loadError = true;
+            alert('Error al cargar la biblioteca jsPDF. Por favor, verifique su conexión a internet e intente nuevamente.');
         };
     } else {
         generarPDF();

@@ -176,16 +176,16 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="ver.php?id=<?php echo $simp['id']; ?>" 
+                                            <a href="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=<?php echo $simp['id']; ?>" 
                                                class="btn btn-info btn-sm" title="Ver">
                                                 <i class="bi bi-eye-fill"></i>
                                             </a>
-                                            <a href="editar.php?id=<?php echo $simp['id']; ?>" 
+                                            <a href="<?php echo BASE_URL; ?>/public/simpatizantes/editar.php?id=<?php echo $simp['id']; ?>" 
                                                class="btn btn-warning btn-sm" title="Editar">
                                                 <i class="bi bi-pencil-fill"></i>
                                             </a>
                                             <?php if (in_array($auth->obtenerRol(), ['super_admin', 'admin'])): ?>
-                                                <a href="eliminar.php?id=<?php echo $simp['id']; ?>" 
+                                                <a href="<?php echo BASE_URL; ?>/public/simpatizantes/eliminar.php?id=<?php echo $simp['id']; ?>" 
                                                    class="btn btn-danger btn-sm" title="Eliminar"
                                                    onclick="return confirmarEliminar()">
                                                     <i class="bi bi-trash-fill"></i>
@@ -217,5 +217,11 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         </div>
     </div>
 </div>
+
+<script>
+function confirmarEliminar() {
+    return confirm('¿Está seguro de que desea eliminar este simpatizante?\n\nEsta acción no se puede deshacer.');
+}
+</script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

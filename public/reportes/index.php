@@ -74,8 +74,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
             <p class="text-muted">Análisis y estadísticas del sistema</p>
         </div>
         <div class="col-md-6 text-end">
-            <button class="btn btn-success" onclick="window.print()">
-                <i class="bi bi-printer-fill me-2"></i>Imprimir
+            <button class="btn btn-success" onclick="exportarPDF()">
+                <i class="bi bi-file-pdf-fill me-2"></i>Exportar en PDF
             </button>
         </div>
     </div>
@@ -170,7 +170,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <div class="row">
         <!-- Top Secciones -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm" id="tabla-secciones">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">
                         <i class="bi bi-award-fill me-2"></i>Top 10 Secciones
@@ -208,7 +208,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         
         <!-- Top Capturistas -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm" id="tabla-capturistas">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">
                         <i class="bi bi-trophy-fill me-2"></i>Top 10 Capturistas
@@ -392,6 +392,165 @@ if (ctxCapturistas && dataCapturistas && dataCapturistas.length > 0) {
     });
 } else {
     console.error('No se pudo crear gráfica de capturistas');
+}
+
+// Función para exportar a PDF
+function exportarPDF() {
+    // Cargar jsPDF y html2canvas si no están ya cargados
+    if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+        // Cargar las bibliotecas necesarias con SRI para seguridad
+        const script1 = document.createElement('script');
+        script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        script1.integrity = 'sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==';
+        script1.crossOrigin = 'anonymous';
+        document.head.appendChild(script1);
+        
+        const script2 = document.createElement('script');
+        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script2.integrity = 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==';
+        script2.crossOrigin = 'anonymous';
+        document.head.appendChild(script2);
+        
+        // Esperar a que ambas bibliotecas se carguen
+        let html2canvasLoaded = false;
+        let jspdfLoaded = false;
+        let loadError = false;
+        
+        script1.onload = function() {
+            html2canvasLoaded = true;
+            if (jspdfLoaded && !loadError) generarPDF();
+        };
+        
+        script1.onerror = function() {
+            loadError = true;
+            alert('Error al cargar la biblioteca html2canvas. Por favor, verifique su conexión a internet e intente nuevamente.');
+        };
+        
+        script2.onload = function() {
+            jspdfLoaded = true;
+            if (html2canvasLoaded && !loadError) generarPDF();
+        };
+        
+        script2.onerror = function() {
+            loadError = true;
+            alert('Error al cargar la biblioteca jsPDF. Por favor, verifique su conexión a internet e intente nuevamente.');
+        };
+    } else {
+        generarPDF();
+    }
+}
+
+function generarPDF() {
+    const { jsPDF } = window.jspdf;
+    
+    // Crear un elemento temporal para el contenido a exportar
+    const elementoTemporal = document.createElement('div');
+    elementoTemporal.style.position = 'absolute';
+    elementoTemporal.style.left = '-9999px';
+    elementoTemporal.style.width = '1200px';
+    elementoTemporal.style.backgroundColor = 'white';
+    elementoTemporal.style.padding = '20px';
+    
+    // Crear el contenido del PDF
+    const contenidoPDF = `
+        <div style="font-family: Arial, sans-serif;">
+            <h1 style="text-align: center; color: #667eea;">Reportes y Analytics</h1>
+            <p style="text-align: center; color: #666;">Sistema de Validación de Simpatizantes</p>
+            <hr style="margin: 20px 0;">
+            
+            <div id="pdf-graficas" style="margin: 20px 0;">
+                <h2 style="color: #667eea;">Gráficas</h2>
+                <div id="chart-tiempo-container" style="margin-bottom: 30px;"></div>
+                <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                    <div id="chart-secciones-container" style="flex: 1;"></div>
+                    <div id="chart-capturistas-container" style="flex: 1;"></div>
+                </div>
+            </div>
+            
+            <div id="pdf-tablas" style="margin: 20px 0;">
+                <h2 style="color: #667eea;">Tablas de Datos</h2>
+                <div style="display: flex; gap: 20px;">
+                    <div id="tabla-secciones-container" style="flex: 1;"></div>
+                    <div id="tabla-capturistas-container" style="flex: 1;"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    elementoTemporal.innerHTML = contenidoPDF;
+    document.body.appendChild(elementoTemporal);
+    
+    // Copiar las gráficas
+    const chartTiempo = document.getElementById('chartTiempo');
+    if (chartTiempo) {
+        const canvasCopia1 = chartTiempo.cloneNode(true);
+        document.getElementById('chart-tiempo-container').appendChild(canvasCopia1);
+    }
+    
+    const chartSecciones = document.getElementById('chartSecciones');
+    if (chartSecciones) {
+        const canvasCopia2 = chartSecciones.cloneNode(true);
+        canvasCopia2.style.maxHeight = '300px';
+        document.getElementById('chart-secciones-container').appendChild(canvasCopia2);
+    }
+    
+    const chartCapturistas = document.getElementById('chartCapturistas');
+    if (chartCapturistas) {
+        const canvasCopia3 = chartCapturistas.cloneNode(true);
+        canvasCopia3.style.maxHeight = '300px';
+        document.getElementById('chart-capturistas-container').appendChild(canvasCopia3);
+    }
+    
+    // Copiar las tablas usando los IDs específicos
+    const tablaSecciones = document.getElementById('tabla-secciones');
+    if (tablaSecciones) {
+        const tablaClonada1 = tablaSecciones.cloneNode(true);
+        document.getElementById('tabla-secciones-container').appendChild(tablaClonada1);
+    }
+    
+    const tablaCapturistas = document.getElementById('tabla-capturistas');
+    if (tablaCapturistas) {
+        const tablaClonada2 = tablaCapturistas.cloneNode(true);
+        document.getElementById('tabla-capturistas-container').appendChild(tablaClonada2);
+    }
+    
+    // Generar PDF
+    html2canvas(elementoTemporal, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+    }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const imgWidth = 210; // A4 width in mm
+        const pageHeight = 297; // A4 height in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+        
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+        
+        // Generar nombre del archivo con fecha
+        const fecha = new Date().toISOString().split('T')[0];
+        pdf.save(`reporte_simpatizantes_${fecha}.pdf`);
+        
+        // Limpiar
+        document.body.removeChild(elementoTemporal);
+    }).catch(error => {
+        console.error('Error al generar PDF:', error);
+        alert('Hubo un error al generar el PDF. Por favor, intente nuevamente.');
+        document.body.removeChild(elementoTemporal);
+    });
 }
 </script>
 

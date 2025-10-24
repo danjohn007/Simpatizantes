@@ -443,83 +443,139 @@ function exportarPDF() {
 function generarPDF() {
     const { jsPDF } = window.jspdf;
     
+    // Verificar si hay datos en la gráfica de tiempo
+    const tieneDatosTiempo = dataTiempo && dataTiempo.length > 0;
+    
     // Crear un elemento temporal para el contenido a exportar
     const elementoTemporal = document.createElement('div');
     elementoTemporal.style.position = 'absolute';
     elementoTemporal.style.left = '-9999px';
-    elementoTemporal.style.width = '1200px';
+    elementoTemporal.style.width = '210mm';
     elementoTemporal.style.backgroundColor = 'white';
-    elementoTemporal.style.padding = '20px';
+    elementoTemporal.style.padding = '15mm';
+    elementoTemporal.style.boxSizing = 'border-box';
     
-    // Crear el contenido del PDF
-    const contenidoPDF = `
-        <div style="font-family: Arial, sans-serif;">
-            <h1 style="text-align: center; color: #667eea;">Reportes y Analytics</h1>
-            <p style="text-align: center; color: #666;">Sistema de Validación de Simpatizantes</p>
-            <hr style="margin: 20px 0;">
-            
-            <div id="pdf-graficas" style="margin: 20px 0;">
-                <h2 style="color: #667eea;">Gráficas</h2>
-                <div id="chart-tiempo-container" style="margin-bottom: 30px;"></div>
-                <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-                    <div id="chart-secciones-container" style="flex: 1;"></div>
-                    <div id="chart-capturistas-container" style="flex: 1;"></div>
-                </div>
+    // Construir el contenido del PDF dinámicamente
+    let contenidoPDF = `
+        <div style="font-family: Arial, sans-serif; color: #333;">
+            <h1 style="text-align: center; color: #667eea; margin-bottom: 10px;">Reportes y Analytics</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">Sistema de Validación de Simpatizantes</p>
+            <hr style="margin-bottom: 30px; border: 1px solid #ddd;">
+    `;
+    
+    // Agregar sección de Avance en el Tiempo solo si hay datos
+    if (tieneDatosTiempo) {
+        contenidoPDF += `
+            <div style="margin-bottom: 40px; page-break-inside: avoid;">
+                <h2 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">📈 Avance en el Tiempo</h2>
+                <div id="chart-tiempo-container" style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 8px;"></div>
             </div>
-            
-            <div id="pdf-tablas" style="margin: 20px 0;">
-                <h2 style="color: #667eea;">Tablas de Datos</h2>
-                <div style="display: flex; gap: 20px;">
-                    <div id="tabla-secciones-container" style="flex: 1;"></div>
-                    <div id="tabla-capturistas-container" style="flex: 1;"></div>
-                </div>
-            </div>
+        `;
+    }
+    
+    // Agregar sección de Por Sección Electoral
+    contenidoPDF += `
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+            <h2 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">📍 Por Sección Electoral</h2>
+            <div id="chart-secciones-container" style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 20px;"></div>
         </div>
     `;
+    
+    // Agregar sección de Por Capturista
+    contenidoPDF += `
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+            <h2 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">👥 Por Capturista</h2>
+            <div id="chart-capturistas-container" style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 20px;"></div>
+        </div>
+    `;
+    
+    // Agregar sección de Top 10 Secciones
+    contenidoPDF += `
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+            <h2 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">🏆 Top 10 Secciones</h2>
+            <div id="tabla-secciones-container" style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 8px;"></div>
+        </div>
+    `;
+    
+    // Agregar sección de Top 10 Capturistas
+    contenidoPDF += `
+        <div style="margin-bottom: 20px; page-break-inside: avoid;">
+            <h2 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">🌟 Top 10 Capturistas</h2>
+            <div id="tabla-capturistas-container" style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 8px;"></div>
+        </div>
+    `;
+    
+    contenidoPDF += `</div>`;
     
     elementoTemporal.innerHTML = contenidoPDF;
     document.body.appendChild(elementoTemporal);
     
-    // Copiar las gráficas
-    const chartTiempo = document.getElementById('chartTiempo');
-    if (chartTiempo) {
-        const canvasCopia1 = chartTiempo.cloneNode(true);
-        document.getElementById('chart-tiempo-container').appendChild(canvasCopia1);
+    // Copiar la gráfica de tiempo solo si hay datos
+    if (tieneDatosTiempo) {
+        const chartTiempo = document.getElementById('chartTiempo');
+        if (chartTiempo) {
+            const canvasCopia1 = document.createElement('canvas');
+            canvasCopia1.width = chartTiempo.width;
+            canvasCopia1.height = chartTiempo.height;
+            const ctx = canvasCopia1.getContext('2d');
+            ctx.drawImage(chartTiempo, 0, 0);
+            canvasCopia1.style.width = '100%';
+            canvasCopia1.style.height = 'auto';
+            document.getElementById('chart-tiempo-container').appendChild(canvasCopia1);
+        }
     }
     
+    // Copiar la gráfica de secciones
     const chartSecciones = document.getElementById('chartSecciones');
     if (chartSecciones) {
-        const canvasCopia2 = chartSecciones.cloneNode(true);
-        canvasCopia2.style.maxHeight = '300px';
+        const canvasCopia2 = document.createElement('canvas');
+        canvasCopia2.width = chartSecciones.width;
+        canvasCopia2.height = chartSecciones.height;
+        const ctx = canvasCopia2.getContext('2d');
+        ctx.drawImage(chartSecciones, 0, 0);
+        canvasCopia2.style.width = '100%';
+        canvasCopia2.style.height = 'auto';
         document.getElementById('chart-secciones-container').appendChild(canvasCopia2);
     }
     
+    // Copiar la gráfica de capturistas
     const chartCapturistas = document.getElementById('chartCapturistas');
     if (chartCapturistas) {
-        const canvasCopia3 = chartCapturistas.cloneNode(true);
-        canvasCopia3.style.maxHeight = '300px';
+        const canvasCopia3 = document.createElement('canvas');
+        canvasCopia3.width = chartCapturistas.width;
+        canvasCopia3.height = chartCapturistas.height;
+        const ctx = canvasCopia3.getContext('2d');
+        ctx.drawImage(chartCapturistas, 0, 0);
+        canvasCopia3.style.width = '100%';
+        canvasCopia3.style.height = 'auto';
         document.getElementById('chart-capturistas-container').appendChild(canvasCopia3);
     }
     
-    // Copiar las tablas usando los IDs específicos
+    // Copiar la tabla de secciones
     const tablaSecciones = document.getElementById('tabla-secciones');
     if (tablaSecciones) {
         const tablaClonada1 = tablaSecciones.cloneNode(true);
+        tablaClonada1.style.boxShadow = 'none';
+        tablaClonada1.querySelector('.card-body').style.padding = '10px';
         document.getElementById('tabla-secciones-container').appendChild(tablaClonada1);
     }
     
+    // Copiar la tabla de capturistas
     const tablaCapturistas = document.getElementById('tabla-capturistas');
     if (tablaCapturistas) {
         const tablaClonada2 = tablaCapturistas.cloneNode(true);
+        tablaClonada2.style.boxShadow = 'none';
+        tablaClonada2.querySelector('.card-body').style.padding = '10px';
         document.getElementById('tabla-capturistas-container').appendChild(tablaClonada2);
     }
     
-    // Generar PDF
+    // Generar PDF con mejor manejo de páginas
     html2canvas(elementoTemporal, {
         scale: 2,
         logging: false,
         useCORS: true,
-        allowTaint: true
+        allowTaint: true,
+        backgroundColor: '#ffffff'
     }).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
@@ -530,9 +586,11 @@ function generarPDF() {
         let heightLeft = imgHeight;
         let position = 0;
         
+        // Agregar primera página
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
         
+        // Agregar páginas adicionales si es necesario
         while (heightLeft >= 0) {
             position = heightLeft - imgHeight;
             pdf.addPage();
@@ -549,7 +607,9 @@ function generarPDF() {
     }).catch(error => {
         console.error('Error al generar PDF:', error);
         alert('Hubo un error al generar el PDF. Por favor, intente nuevamente.');
-        document.body.removeChild(elementoTemporal);
+        if (document.body.contains(elementoTemporal)) {
+            document.body.removeChild(elementoTemporal);
+        }
     });
 }
 </script>

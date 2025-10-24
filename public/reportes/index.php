@@ -253,87 +253,146 @@ const dataTiempo = <?php echo json_encode($estatsPorDia); ?>;
 const dataSecciones = <?php echo json_encode(array_slice($estatsPorSeccion, 0, 10)); ?>;
 const dataCapturistas = <?php echo json_encode(array_slice($estatsPorCapturista, 0, 10)); ?>;
 
+console.log('Data loaded:', { dataTiempo, dataSecciones, dataCapturistas });
+
 // Gráfica de Tiempo
-const ctxTiempo = document.getElementById('chartTiempo').getContext('2d');
-new Chart(ctxTiempo, {
-    type: 'line',
-    data: {
-        labels: dataTiempo.map(item => new Date(item.fecha).toLocaleDateString()),
-        datasets: [{
-            label: 'Simpatizantes por Día',
-            data: dataTiempo.map(item => item.total),
-            borderColor: 'rgb(102, 126, 234)',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            tension: 0.4,
-            fill: true
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                display: true
-            }
+const ctxTiempo = document.getElementById('chartTiempo');
+if (ctxTiempo && dataTiempo && dataTiempo.length > 0) {
+    new Chart(ctxTiempo, {
+        type: 'line',
+        data: {
+            labels: dataTiempo.map(item => new Date(item.fecha).toLocaleDateString('es-MX')),
+            datasets: [{
+                label: 'Simpatizantes por Día',
+                data: dataTiempo.map(item => parseInt(item.total)),
+                borderColor: 'rgb(102, 126, 234)',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
         },
-        scales: {
-            y: {
-                beginAtZero: true
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Simpatizantes: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
             }
         }
-    }
-});
+    });
+} else {
+    console.error('No se pudo crear gráfica de tiempo');
+}
 
 // Gráfica de Secciones
-const ctxSecciones = document.getElementById('chartSecciones').getContext('2d');
-new Chart(ctxSecciones, {
-    type: 'bar',
-    data: {
-        labels: dataSecciones.map(item => 'Sección ' + item.seccion_electoral),
-        datasets: [{
-            label: 'Simpatizantes',
-            data: dataSecciones.map(item => item.total),
-            backgroundColor: 'rgba(102, 126, 234, 0.8)'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                display: false
+const ctxSecciones = document.getElementById('chartSecciones');
+if (ctxSecciones && dataSecciones && dataSecciones.length > 0) {
+    new Chart(ctxSecciones, {
+        type: 'bar',
+        data: {
+            labels: dataSecciones.map(item => 'Sección ' + item.seccion_electoral),
+            datasets: [{
+                label: 'Simpatizantes',
+                data: dataSecciones.map(item => parseInt(item.total)),
+                backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Simpatizantes: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
             }
         }
-    }
-});
+    });
+} else {
+    console.error('No se pudo crear gráfica de secciones');
+}
 
 // Gráfica de Capturistas
-const ctxCapturistas = document.getElementById('chartCapturistas').getContext('2d');
-new Chart(ctxCapturistas, {
-    type: 'pie',
-    data: {
-        labels: dataCapturistas.map(item => item.nombre_completo),
-        datasets: [{
-            data: dataCapturistas.map(item => item.total),
-            backgroundColor: [
-                'rgba(255, 99, 132, 0.8)',
-                'rgba(54, 162, 235, 0.8)',
-                'rgba(255, 206, 86, 0.8)',
-                'rgba(75, 192, 192, 0.8)',
-                'rgba(153, 102, 255, 0.8)',
-                'rgba(255, 159, 64, 0.8)',
-                'rgba(199, 199, 199, 0.8)',
-                'rgba(83, 102, 255, 0.8)',
-                'rgba(255, 99, 255, 0.8)',
-                'rgba(99, 255, 132, 0.8)'
-            ]
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true
-    }
-});
+const ctxCapturistas = document.getElementById('chartCapturistas');
+if (ctxCapturistas && dataCapturistas && dataCapturistas.length > 0) {
+    new Chart(ctxCapturistas, {
+        type: 'pie',
+        data: {
+            labels: dataCapturistas.map(item => item.nombre_completo),
+            datasets: [{
+                data: dataCapturistas.map(item => parseInt(item.total)),
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)',
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)',
+                    'rgba(199, 199, 199, 0.8)',
+                    'rgba(83, 102, 255, 0.8)',
+                    'rgba(255, 99, 255, 0.8)',
+                    'rgba(99, 255, 132, 0.8)'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+} else {
+    console.error('No se pudo crear gráfica de capturistas');
+}
 </script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

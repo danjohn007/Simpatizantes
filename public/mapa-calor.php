@@ -17,7 +17,11 @@ $campanaModel = new Campana();
 
 // Procesar filtros
 $filtros = [];
-if (!empty($_GET['campana_id'])) {
+
+// Filtrar por campaña del usuario si no es admin
+if (!$auth->puedeVerTodasLasCampanas()) {
+    $filtros['campana_id'] = $auth->obtenerCampanaId();
+} elseif (!empty($_GET['campana_id'])) {
     $filtros['campana_id'] = $_GET['campana_id'];
 }
 
@@ -31,7 +35,18 @@ if (!empty($_GET['fecha_fin'])) {
 
 // Obtener datos para el mapa
 $datosMapaCalor = $simpatizanteModel->obtenerParaMapaCalor($filtros);
-$campanas = $campanaModel->obtenerTodas(1);
+
+// Obtener campañas según permisos
+if (!$auth->puedeVerTodasLasCampanas()) {
+    $campanaId = $auth->obtenerCampanaId();
+    if ($campanaId) {
+        $campanas = [$campanaModel->obtenerPorId($campanaId)];
+    } else {
+        $campanas = [];
+    }
+} else {
+    $campanas = $campanaModel->obtenerTodas(1);
+}
 
 $pageTitle = 'Mapa de Calor';
 include __DIR__ . '/../app/views/layouts/header.php';
@@ -64,9 +79,10 @@ include __DIR__ . '/../app/views/layouts/header.php';
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" action="" class="row g-3">
+                <?php if ($auth->puedeVerTodasLasCampanas()): ?>
                 <div class="col-md-4">
                     <label class="form-label">Campaña</label>
-                    <select class="form-select" name="campana_id" onchange="this.form.submit()">
+                    <select class="form-select" name="campana_id">
                         <option value="">Todas las campañas</option>
                         <?php foreach ($campanas as $campana): ?>
                             <option value="<?php echo $campana['id']; ?>" 
@@ -76,26 +92,30 @@ include __DIR__ . '/../app/views/layouts/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php endif; ?>
                 
-                <div class="col-md-3">
+                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
                     <label class="form-label">Fecha Inicio</label>
                     <input type="date" class="form-control" name="fecha_inicio" 
-                           value="<?php echo htmlspecialchars($_GET['fecha_inicio'] ?? ''); ?>"
-                           onchange="this.form.submit()">
+                           value="<?php echo htmlspecialchars($_GET['fecha_inicio'] ?? ''); ?>">
                 </div>
                 
-                <div class="col-md-3">
+                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
                     <label class="form-label">Fecha Fin</label>
                     <input type="date" class="form-control" name="fecha_fin" 
-                           value="<?php echo htmlspecialchars($_GET['fecha_fin'] ?? ''); ?>"
-                           onchange="this.form.submit()">
+                           value="<?php echo htmlspecialchars($_GET['fecha_fin'] ?? ''); ?>">
                 </div>
                 
-                <div class="col-md-2">
+                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-2' : 'col-md-4'; ?>">
                     <label class="form-label">&nbsp;</label>
-                    <a href="mapa-calor.php" class="btn btn-secondary w-100">
-                        <i class="bi bi-arrow-clockwise"></i> Limpiar
-                    </a>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill">
+                            <i class="bi bi-search"></i> Filtrar
+                        </button>
+                        <a href="mapa-calor.php" class="btn btn-secondary flex-fill">
+                            <i class="bi bi-arrow-clockwise"></i> Limpiar
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>

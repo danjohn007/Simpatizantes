@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => $_POST['password'] ?? '',
         'nombre_completo' => trim($_POST['nombre_completo'] ?? ''),
         'rol' => $_POST['rol'] ?? 'capturista',
+        'campana_id' => !empty($_POST['campana_id']) ? (int)$_POST['campana_id'] : null,
         'whatsapp' => trim($_POST['whatsapp'] ?? ''),
         'twitter' => trim($_POST['twitter'] ?? ''),
         'instagram' => trim($_POST['instagram'] ?? ''),
@@ -59,6 +60,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($datos['nombre_completo'])) {
         $errores[] = 'El nombre completo es obligatorio';
+    }
+    
+    // Validar WhatsApp si se proporciona
+    if (!empty($datos['whatsapp'])) {
+        if (!preg_match('/^[0-9]{10}$/', $datos['whatsapp'])) {
+            $errores[] = 'El WhatsApp debe tener exactamente 10 dígitos';
+        } elseif ($usuarioModel->existeWhatsApp($datos['whatsapp'])) {
+            $errores[] = 'Este número de WhatsApp ya está registrado';
+        }
+    }
+    
+    // Validar campaña para roles que no sean super_admin o admin
+    if (!in_array($datos['rol'], ['super_admin', 'admin'])) {
+        if (empty($datos['campana_id'])) {
+            $errores[] = 'Debe seleccionar una campaña para este rol';
+        }
+    } else {
+        $datos['campana_id'] = null;
     }
     
     if (empty($errores)) {
@@ -164,9 +183,9 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             </div>
                             
                             <!-- Rol -->
-                            <div class="col-md-12 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Rol <span class="text-danger">*</span></label>
-                                <select class="form-select" name="rol" required>
+                                <select class="form-select" name="rol" id="rol" required onchange="toggleCampanaField()">
                                     <?php if ($auth->obtenerRol() === 'super_admin'): ?>
                                         <option value="super_admin" <?php echo (isset($_POST['rol']) && $_POST['rol'] === 'super_admin') ? 'selected' : ''; ?>>
                                             Super Administrador
@@ -186,6 +205,25 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                                     </option>
                                 </select>
                             </div>
+                            
+                            <!-- Campaña (Solo para roles específicos) -->
+                            <div class="col-md-6 mb-3" id="campana-field" style="display: none;">
+                                <label class="form-label">Campaña <span class="text-danger">*</span></label>
+                                <select class="form-select" name="campana_id" id="campana_id">
+                                    <option value="">Seleccionar campaña...</option>
+                                    <?php
+                                    require_once __DIR__ . '/../../app/models/Campana.php';
+                                    $campanaModel = new Campana();
+                                    $campanas = $campanaModel->obtenerTodas(1); // Solo campañas activas
+                                    foreach ($campanas as $campana):
+                                    ?>
+                                        <option value="<?php echo $campana['id']; ?>" 
+                                                <?php echo (isset($_POST['campana_id']) && $_POST['campana_id'] == $campana['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($campana['nombre']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                         
                         <hr class="my-4">
@@ -195,9 +233,10 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             <!-- WhatsApp -->
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">WhatsApp</label>
-                                <input type="text" class="form-control" name="whatsapp" 
+                                <input type="tel" class="form-control" name="whatsapp" 
                                        value="<?php echo htmlspecialchars($_POST['whatsapp'] ?? ''); ?>" 
-                                       maxlength="20" placeholder="5551234567">
+                                       pattern="[0-9]{10}" maxlength="10" placeholder="5551234567">
+                                <small class="text-muted">10 dígitos sin espacios ni guiones</small>
                             </div>
                             
                             <!-- Twitter -->
@@ -292,5 +331,28 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         </div>
     </div>
 </div>
+
+<script>
+function toggleCampanaField() {
+    const rol = document.getElementById('rol').value;
+    const campanaField = document.getElementById('campana-field');
+    const campanaSelect = document.getElementById('campana_id');
+    
+    // Mostrar el campo de campaña para candidato, coordinador y capturista
+    if (rol === 'candidato' || rol === 'coordinador' || rol === 'capturista') {
+        campanaField.style.display = 'block';
+        campanaSelect.required = true;
+    } else {
+        campanaField.style.display = 'none';
+        campanaSelect.required = false;
+        campanaSelect.value = '';
+    }
+}
+
+// Ejecutar al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    toggleCampanaField();
+});
+</script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

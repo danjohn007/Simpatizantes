@@ -12,7 +12,18 @@ $auth = new AuthController();
 $auth->requiereRol(['super_admin', 'admin', 'coordinador']);
 
 $campanaModel = new Campana();
-$campanas = $campanaModel->obtenerTodas();
+
+// Filtrar por campaña del usuario si no es admin
+if (!$auth->puedeVerTodasLasCampanas()) {
+    $campanaId = $auth->obtenerCampanaId();
+    if ($campanaId) {
+        $campanas = [$campanaModel->obtenerPorId($campanaId)];
+    } else {
+        $campanas = [];
+    }
+} else {
+    $campanas = $campanaModel->obtenerTodas();
+}
 
 $pageTitle = 'Campañas';
 include __DIR__ . '/../../app/views/layouts/header.php';

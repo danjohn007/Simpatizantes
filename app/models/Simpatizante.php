@@ -375,4 +375,34 @@ class Simpatizante {
         
         return $this->db->query($sql, $params);
     }
+    
+    /**
+     * Verifica si existe un WhatsApp registrado
+     */
+    public function existeWhatsApp($whatsapp, $excludeId = null) {
+        if ($excludeId) {
+            $sql = "SELECT COUNT(*) as count FROM simpatizantes WHERE whatsapp = ? AND id != ?";
+            $result = $this->db->queryOne($sql, [$whatsapp, $excludeId]);
+        } else {
+            $sql = "SELECT COUNT(*) as count FROM simpatizantes WHERE whatsapp = ?";
+            $result = $this->db->queryOne($sql, [$whatsapp]);
+        }
+        
+        return $result['count'] > 0;
+    }
+    
+    /**
+     * Verifica si existe un email registrado
+     */
+    public function existeEmail($email, $excludeId = null) {
+        if ($excludeId) {
+            $sql = "SELECT COUNT(*) as count FROM simpatizantes WHERE email = ? AND id != ?";
+            $result = $this->db->queryOne($sql, [$email, $excludeId]);
+        } else {
+            $sql = "SELECT COUNT(*) as count FROM simpatizantes WHERE email = ?";
+            $result = $this->db->queryOne($sql, [$email]);
+        }
+        
+        return $result['count'] > 0;
+    }
 }

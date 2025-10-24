@@ -52,6 +52,7 @@ class AuthController {
                 $_SESSION['nombre_completo'] = $result['nombre_completo'];
                 $_SESSION['rol'] = $result['rol'];
                 $_SESSION['email'] = $result['email'];
+                $_SESSION['campana_id'] = $result['campana_id'];
                 $_SESSION['last_activity'] = time();
                 
                 // Registrar en log
@@ -125,6 +126,25 @@ class AuthController {
      */
     public function obtenerRol() {
         return $_SESSION['rol'] ?? null;
+    }
+    
+    /**
+     * Obtiene el ID de la campaña del usuario actual
+     */
+    public function obtenerCampanaId() {
+        return $_SESSION['campana_id'] ?? null;
+    }
+    
+    /**
+     * Verifica si el usuario puede ver todas las campañas
+     */
+    public function puedeVerTodasLasCampanas() {
+        if (!$this->estaAutenticado()) {
+            return false;
+        }
+        
+        $rol = $this->obtenerRol();
+        return in_array($rol, ['super_admin', 'admin']);
     }
     
     /**

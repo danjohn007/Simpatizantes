@@ -19,7 +19,10 @@ $campanaModel = new Campana();
 $filtros = [];
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-if (!empty($_GET['campana_id'])) {
+// Filtrar por campaña del usuario si no es admin
+if (!$auth->puedeVerTodasLasCampanas()) {
+    $filtros['campana_id'] = $auth->obtenerCampanaId();
+} elseif (!empty($_GET['campana_id'])) {
     $filtros['campana_id'] = $_GET['campana_id'];
 }
 

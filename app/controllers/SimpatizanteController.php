@@ -27,6 +27,11 @@ class SimpatizanteController {
     public function listar($filtros = [], $page = 1) {
         $this->auth->requiereAutenticacion();
         
+        // Filtrar por campaña si no puede ver todas las campañas
+        if (!$this->auth->puedeVerTodasLasCampanas()) {
+            $filtros['campana_id'] = $this->auth->obtenerCampanaId();
+        }
+        
         // Filtrar por capturista si es el rol actual
         if ($this->auth->obtenerRol() === 'capturista') {
             $filtros['capturista_id'] = $this->auth->obtenerUsuarioId();
@@ -189,6 +194,10 @@ class SimpatizanteController {
             $errores['seccion_electoral'] = 'La sección electoral es obligatoria';
         }
         
+        if (empty($datos['campana_id'])) {
+            $errores['campana_id'] = 'Debe seleccionar una campaña';
+        }
+        
         // Validar formato CURP si se proporciona
         if (!empty($datos['curp'])) {
             if (!$this->validarCURP($datos['curp'])) {
@@ -203,10 +212,34 @@ class SimpatizanteController {
             }
         }
         
+        // Validar WhatsApp (10 dígitos)
+        if (!empty($datos['whatsapp'])) {
+            if (!preg_match('/^[0-9]{10}$/', $datos['whatsapp'])) {
+                $errores['whatsapp'] = 'El WhatsApp debe tener exactamente 10 dígitos';
+            } else {
+                // Verificar unicidad de WhatsApp
+                if ($this->model->existeWhatsApp($datos['whatsapp'], $excludeId)) {
+                    $errores['whatsapp'] = 'Este número de WhatsApp ya está registrado';
+                }
+            }
+        }
+        
+        // Validar sección electoral (4 dígitos)
+        if (!empty($datos['seccion_electoral'])) {
+            if (!preg_match('/^[0-9]{4}$/', $datos['seccion_electoral'])) {
+                $errores['seccion_electoral'] = 'La sección electoral debe tener exactamente 4 dígitos';
+            }
+        }
+        
         // Validar email si se proporciona
         if (!empty($datos['email'])) {
             if (!filter_var($datos['email'], FILTER_VALIDATE_EMAIL)) {
                 $errores['email'] = 'Formato de email inválido';
+            } else {
+                // Verificar unicidad de email
+                if ($this->model->existeEmail($datos['email'], $excludeId)) {
+                    $errores['email'] = 'Este correo electrónico ya está registrado';
+                }
             }
         }
         

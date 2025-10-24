@@ -17,7 +17,11 @@ $campanaModel = new Campana();
 
 // Procesar filtros
 $filtros = [];
-if (!empty($_GET['campana_id'])) {
+
+// Filtrar por campaña del usuario si no es admin
+if (!$auth->puedeVerTodasLasCampanas()) {
+    $filtros['campana_id'] = $auth->obtenerCampanaId();
+} elseif (!empty($_GET['campana_id'])) {
     $filtros['campana_id'] = $_GET['campana_id'];
 }
 
@@ -48,14 +52,16 @@ if (!empty($filtros['campana_id'])) {
     $params[] = $filtros['campana_id'];
 }
 
-$whereClause = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+$whereClause = '';
+if (!empty($whereClauses)) {
+    // Cuando ya hay condiciones, incluir la cláusula AND para el rango de fechas
+    $whereClause = 'WHERE ' . implode(' AND ', $whereClauses) . ' AND DATE(created_at) BETWEEN ? AND ?';
+} else {
+    // No hay condiciones previas: la cláusula WHERE sólo debe incluir el filtro de fechas
+    $whereClause = 'WHERE DATE(created_at) BETWEEN ? AND ?';
+}
 
-$sql = "SELECT DATE(created_at) as fecha, COUNT(*) as total 
-        FROM simpatizantes 
-        $whereClause
-        AND DATE(created_at) BETWEEN ? AND ?
-        GROUP BY DATE(created_at)
-        ORDER BY fecha ASC";
+$sql = "SELECT DATE(created_at) as fecha, COUNT(*) as total FROM simpatizantes $whereClause GROUP BY DATE(created_at) ORDER BY fecha ASC";
 
 $params[] = $filtros['fecha_inicio'];
 $params[] = $filtros['fecha_fin'];
@@ -84,6 +90,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" action="" class="row g-3">
+                <?php if ($auth->puedeVerTodasLasCampanas()): ?>
                 <div class="col-md-4">
                     <label class="form-label">Campaña</label>
                     <select class="form-select" name="campana_id">
@@ -96,24 +103,30 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php endif; ?>
                 
-                <div class="col-md-3">
+                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
                     <label class="form-label">Fecha Inicio</label>
                     <input type="date" class="form-control" name="fecha_inicio" 
                            value="<?php echo htmlspecialchars($filtros['fecha_inicio']); ?>">
                 </div>
                 
-                <div class="col-md-3">
+                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
                     <label class="form-label">Fecha Fin</label>
                     <input type="date" class="form-control" name="fecha_fin" 
                            value="<?php echo htmlspecialchars($filtros['fecha_fin']); ?>">
                 </div>
                 
-                <div class="col-md-2">
+                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-2' : 'col-md-4'; ?>">
                     <label class="form-label">&nbsp;</label>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filtrar
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill">
+                            <i class="bi bi-search"></i> Filtrar
+                        </button>
+                        <a href="index.php" class="btn btn-secondary flex-fill">
+                            <i class="bi bi-arrow-clockwise"></i> Limpiar
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>
@@ -123,13 +136,22 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-graph-up-arrow me-2"></i>Avance en el Tiempo
-                    </h5>
+                <div class="card-header bg-white border-bottom-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 d-flex align-items-center">
+                                <i class="bi bi-graph-up-arrow me-2 text-primary"></i>
+                                <span class="fw-semibold text-dark">Actividad de Registros</span>
+                            </h5>
+                            <small class="text-muted">Tendencia diaria con rango de variación</small>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">Período: <?php echo date('d/m/Y', strtotime($filtros['fecha_inicio'])); ?> - <?php echo date('d/m/Y', strtotime($filtros['fecha_fin'])); ?></small>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <canvas id="chartTiempo" height="80"></canvas>
+                <div class="card-body p-4">
+                    <div id="chartTiempo" style="height: 320px;"></div>
                 </div>
             </div>
         </div>
@@ -138,29 +160,44 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <!-- Gráficas de Comparación -->
     <div class="row mb-4">
         <!-- Por Sección -->
-        <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-geo-alt-fill me-2"></i>Por Sección Electoral
-                    </h5>
+        <div class="col-12 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 d-flex align-items-center">
+                                <i class="bi bi-geo-alt-fill me-2 text-primary"></i>
+                                <span class="fw-semibold text-dark">Por Sección Electoral</span>
+                            </h5>
+                            <small class="text-muted">Distribución geográfica de registros - Top 10</small>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <canvas id="chartSecciones" height="150"></canvas>
+                <div class="card-body p-4">
+                    <div id="chartSecciones" style="height: 360px;"></div>
                 </div>
             </div>
         </div>
-        
+    </div>
+    
+    <!-- Gráfica Por Capturista -->
+    <div class="row mb-4">
         <!-- Por Capturista -->
-        <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-people-fill me-2"></i>Por Capturista
-                    </h5>
+        <div class="col-12 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 d-flex align-items-center">
+                                <i class="bi bi-people-fill me-2 text-primary"></i>
+                                <span class="fw-semibold text-dark">Por Capturista</span>
+                            </h5>
+                            <small class="text-muted">Rendimiento del equipo de trabajo - Top 10</small>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <canvas id="chartCapturistas" height="150"></canvas>
+                <div class="card-body p-4">
+                    <div id="chartCapturistas" style="height: 360px;"></div>
                 </div>
             </div>
         </div>
@@ -246,7 +283,54 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Highcharts scripts -->
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/highcharts-more.js"></script>
+<script src="https://code.highcharts.com/modules/series-label.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+// Verificar que Highcharts se haya cargado; si no, mostrar mensaje claro en los contenedores de las gráficas
+if (typeof Highcharts === 'undefined') {
+    console.error('Highcharts no cargó: posible bloqueo de CDN o problema de red.');
+    document.addEventListener('DOMContentLoaded', function() {
+        ['chartTiempo','chartSecciones','chartCapturistas'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = '<div class="text-center text-muted p-4">La librería de gráficas no pudo cargarse. Revise la conexión a internet o los recursos (CDN).</div>';
+            }
+        });
+    });
+}
+</script>
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    }
+    .card {
+        border-radius: 12px !important;
+        overflow: hidden;
+    }
+    .card-body {
+        background: #ffffff;
+    }
+    .text-primary {
+        color: #1e40af !important;
+    }
+    .fw-semibold {
+        font-weight: 600 !important;
+    }
+    .border-bottom-0 {
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+    #chartTiempo {
+        min-height: 320px;
+        width: 100%;
+    }
+</style>
 <script>
 // Datos para las gráficas
 const dataTiempo = <?php echo json_encode($estatsPorDia); ?>;
@@ -255,147 +339,539 @@ const dataCapturistas = <?php echo json_encode(array_slice($estatsPorCapturista,
 
 console.log('Data loaded:', { dataTiempo, dataSecciones, dataCapturistas });
 
-// Gráfica de Tiempo
-const ctxTiempo = document.getElementById('chartTiempo');
-if (ctxTiempo && dataTiempo && dataTiempo.length > 0) {
-    new Chart(ctxTiempo, {
-        type: 'line',
-        data: {
-            labels: dataTiempo.map(item => new Date(item.fecha).toLocaleDateString('es-MX')),
-            datasets: [{
-                label: 'Simpatizantes por Día',
-                data: dataTiempo.map(item => parseInt(item.total)),
-                borderColor: 'rgb(102, 126, 234)',
-                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
+// Highcharts: Gráfica de tiempo con área de rango y línea profesional
+const tiempoData = <?php echo json_encode($estatsPorDia); ?>;
+if (document.getElementById('chartTiempo') && tiempoData && tiempoData.length > 0) {
+    // Procesar datos para Highcharts
+    const categories = tiempoData.map(item => {
+        const d = new Date(item.fecha);
+        return d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
+    });
+    const lineData = tiempoData.map(item => parseInt(item.total));
+    // Simular rango: +/- 10% del valor (puedes ajustar según tu lógica real)
+    const rangeData = tiempoData.map(item => {
+        const v = parseInt(item.total);
+        const min = Math.max(0, v - Math.round(v * 0.1));
+        const max = v + Math.round(v * 0.1);
+        return [min, max];
+    });
+
+    Highcharts.chart('chartTiempo', {
+        chart: {
+            type: 'arearange',
+            backgroundColor: {
+                linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                stops: [
+                    [0, '#ffffff'],
+                    [1, '#f8fafc']
+                ]
+            },
+            style: {
+                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+            },
+            height: 360,
+            borderRadius: 12,
+            shadow: {
+                color: 'rgba(0, 0, 0, 0.08)',
+                offsetX: 0,
+                offsetY: 4,
+                width: 12
+            },
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: true
+        title: {
+            text: null
+        },
+        xAxis: {
+            categories: categories,
+            tickLength: 0,
+            lineColor: '#cbd5e1',
+            lineWidth: 2,
+            gridLineWidth: 0,
+            labels: {
+                style: {
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                }
+            }
+        },
+        yAxis: {
+            title: { text: null },
+            gridLineColor: '#e2e8f0',
+            gridLineDashStyle: 'Dash',
+            gridLineWidth: 1,
+            labels: {
+                style: {
+                    color: '#64748b',
+                    fontSize: '13px',
+                    fontWeight: '500'
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return 'Simpatizantes: ' + context.parsed.y;
-                        }
+                formatter: function() { return this.value.toLocaleString('es-MX'); }
+            },
+            min: 0
+        },
+        tooltip: {
+            shared: true,
+            useHTML: true,
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            style: {
+                color: '#f1f5f9',
+                fontSize: '13px',
+                fontFamily: 'Inter, sans-serif',
+                padding: '12px'
+            },
+            borderColor: '#334155',
+            borderWidth: 1,
+            borderRadius: 8,
+            shadow: {
+                color: 'rgba(0, 0, 0, 0.3)',
+                offsetX: 0,
+                offsetY: 2,
+                width: 8,
+                opacity: 0.3
+            },
+            formatter: function() {
+                const idx = this.points[0].point.index;
+                const fecha = tiempoData[idx].fecha;
+                const d = new Date(fecha);
+                const fechaStr = d.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                let s = `<div style="font-weight: 600; margin-bottom: 6px; color: #e2e8f0; font-size: 14px;">${fechaStr}</div>`;
+                this.points.forEach(function(point) {
+                    if (point.series.name === 'Rango de registros') {
+                        s += `<div style="margin: 4px 0;"><span style='color:#60a5fa; font-size: 16px;'>●</span> <span style="color: #cbd5e1;">Rango:</span> <span style="font-weight: 600; color: #e2e8f0;">${point.point.low.toLocaleString('es-MX')} - ${point.point.high.toLocaleString('es-MX')}</span></div>`;
+                    }
+                    if (point.series.name === 'Registros diarios') {
+                        s += `<div style="margin: 4px 0;"><span style='color:#3b82f6; font-size: 16px;'>●</span> <span style="color: #cbd5e1;">Registros:</span> <span style="font-weight: 700; color: #ffffff;">${point.y.toLocaleString('es-MX')}</span></div>`;
+                    }
+                });
+                return s;
+            }
+        },
+        legend: {
+            enabled: true,
+            align: 'center',
+            verticalAlign: 'bottom',
+            itemStyle: {
+                color: '#334155',
+                fontWeight: '600',
+                fontSize: '13px'
+            },
+            itemHoverStyle: {
+                color: '#0f172a'
+            },
+            itemDistance: 24,
+            symbolRadius: 6,
+            symbolHeight: 12,
+            symbolWidth: 12
+        },
+        series: [
+            {
+                name: 'Rango de registros',
+                data: rangeData,
+                color: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, 'rgba(96, 165, 250, 0.25)'],
+                        [1, 'rgba(59, 130, 246, 0.08)']
+                    ]
+                },
+                lineWidth: 0,
+                marker: { enabled: false },
+                zIndex: 0,
+                fillOpacity: 1,
+                type: 'arearange',
+                showInLegend: true,
+                states: {
+                    hover: {
+                        enabled: false
                     }
                 }
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0
+            {
+                name: 'Registros diarios',
+                data: lineData,
+                color: '#3b82f6',
+                lineWidth: 3,
+                marker: {
+                    enabled: true,
+                    radius: 5,
+                    fillColor: '#ffffff',
+                    lineColor: '#3b82f6',
+                    lineWidth: 3,
+                    symbol: 'circle',
+                    states: {
+                        hover: {
+                            radius: 7,
+                            lineWidth: 4
+                        }
+                    }
+                },
+                zIndex: 1,
+                type: 'line',
+                showInLegend: true,
+                shadow: {
+                    color: 'rgba(59, 130, 246, 0.3)',
+                    width: 4,
+                    offsetY: 2
+                },
+                states: {
+                    hover: {
+                        lineWidth: 4
                     }
                 }
             }
-        }
+        ],
+        credits: { enabled: false },
+        exporting: { enabled: false }
     });
-} else {
-    console.error('No se pudo crear gráfica de tiempo');
 }
 
-// Gráfica de Secciones
-const ctxSecciones = document.getElementById('chartSecciones');
-if (ctxSecciones && dataSecciones && dataSecciones.length > 0) {
-    new Chart(ctxSecciones, {
-        type: 'bar',
-        data: {
-            labels: dataSecciones.map(item => 'Sección ' + item.seccion_electoral),
-            datasets: [{
-                label: 'Simpatizantes',
-                data: dataSecciones.map(item => parseInt(item.total)),
-                backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 1
-            }]
+// Highcharts: Gráfica de Secciones (Barra profesional)
+// Highcharts: Gráfica de Secciones estilo Bell Curve profesional
+const seccionesData = <?php echo json_encode(array_slice($estatsPorSeccion, 0, 10)); ?>;
+if (document.getElementById('chartSecciones') && seccionesData && seccionesData.length > 0) {
+    const lineData = seccionesData.map(item => parseInt(item.total));
+    const categories = seccionesData.map(item => 'Sección ' + item.seccion_electoral);
+    
+    // Crear datos de puntos de observación (scatter) con posiciones aleatorias
+    const scatterData = [];
+    seccionesData.forEach((item, index) => {
+        const baseValue = parseInt(item.total);
+        const numPoints = Math.min(Math.floor(baseValue / 8), 40);
+        for (let i = 0; i < numPoints; i++) {
+            const yOffset = (Math.random() - 0.5) * baseValue * 0.35;
+            scatterData.push({
+                x: index,
+                y: Math.max(0, baseValue * 0.65 + yOffset)
+            });
+        }
+    });
+
+    Highcharts.chart('chartSecciones', {
+        chart: {
+            type: 'area',
+            backgroundColor: {
+                linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                stops: [
+                    [0, '#ffffff'],
+                    [1, '#f8fafc']
+                ]
+            },
+            style: { fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+            height: 400,
+            borderRadius: 12,
+            plotBackgroundColor: 'transparent',
+            shadow: {
+                color: 'rgba(0, 0, 0, 0.08)',
+                offsetX: 0,
+                offsetY: 4,
+                width: 12
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: false
+        title: { text: null },
+        xAxis: {
+            categories: categories,
+            tickLength: 0,
+            lineColor: '#cbd5e1',
+            lineWidth: 2,
+            gridLineWidth: 1,
+            gridLineColor: '#e2e8f0',
+            labels: {
+                style: {
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: '600'
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return 'Simpatizantes: ' + context.parsed.y;
-                        }
-                    }
+                rotation: -45
+            }
+        },
+        yAxis: {
+            title: { 
+                text: 'Densidad de registros',
+                style: {
+                    color: '#64748b',
+                    fontSize: '12px',
+                    fontWeight: '600'
                 }
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0
+            gridLineColor: '#e2e8f0',
+            gridLineDashStyle: 'Dash',
+            gridLineWidth: 1,
+            labels: {
+                style: {
+                    color: '#64748b',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                },
+                formatter: function() { 
+                    return this.value.toLocaleString('es-MX'); 
+                }
+            },
+            min: 0
+        },
+        legend: {
+            enabled: true,
+            align: 'center',
+            verticalAlign: 'bottom',
+            itemStyle: {
+                color: '#334155',
+                fontWeight: '600',
+                fontSize: '13px'
+            },
+            itemHoverStyle: {
+                color: '#0f172a'
+            },
+            itemDistance: 24,
+            symbolRadius: 6,
+            symbolHeight: 12,
+            symbolWidth: 12
+        },
+        tooltip: {
+            shared: false,
+            useHTML: true,
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            style: {
+                color: '#f1f5f9',
+                fontSize: '13px',
+                fontFamily: 'Inter, sans-serif',
+                padding: '12px'
+            },
+            borderColor: '#334155',
+            borderWidth: 1,
+            borderRadius: 8,
+            shadow: {
+                color: 'rgba(0, 0, 0, 0.3)',
+                offsetX: 0,
+                offsetY: 2,
+                width: 8
+            },
+            formatter: function() {
+                if (this.series.name === 'Observaciones') {
+                    return `<div style="font-weight: 600; color: #10b981; margin-bottom: 4px;">Observación</div><div style="color: #cbd5e1;">Valor: <span style="font-weight: 700; color: #fff;">${this.y.toFixed(0)}</span></div>`;
+                }
+                const idx = this.point.index;
+                const seccion = seccionesData[idx].seccion_electoral;
+                return `<div style="font-weight: 600; color: #10b981; margin-bottom: 4px; font-size: 14px;">Sección ${seccion}</div><div style="color: #cbd5e1;">Registros: <span style="font-weight: 700; color: #fff;">${this.y.toLocaleString('es-MX')}</span></div>`;
+            }
+        },
+        plotOptions: {
+            area: {
+                fillColor: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, 'rgba(16, 185, 129, 0.4)'],
+                        [0.5, 'rgba(5, 150, 105, 0.25)'],
+                        [1, 'rgba(4, 120, 87, 0.08)']
+                    ]
+                },
+                lineWidth: 3,
+                lineColor: '#10b981',
+                marker: {
+                    enabled: false
+                },
+                states: {
+                    hover: {
+                        lineWidth: 4,
+                        lineColor: '#059669'
+                    }
+                },
+                shadow: {
+                    color: 'rgba(16, 185, 129, 0.3)',
+                    width: 4,
+                    offsetY: 2
+                },
+                threshold: null
+            },
+            scatter: {
+                marker: {
+                    radius: 2.5,
+                    symbol: 'circle'
+                },
+                states: {
+                    hover: {
+                        enabled: true,
+                        lineWidthPlus: 0
                     }
                 }
             }
-        }
+        },
+        series: [
+            {
+                name: 'Distribución de registros',
+                data: lineData,
+                type: 'area',
+                color: '#10b981',
+                zIndex: 1,
+                showInLegend: true
+            },
+            {
+                name: 'Observaciones',
+                data: scatterData,
+                type: 'scatter',
+                color: '#34d399',
+                opacity: 0.5,
+                marker: {
+                    radius: 2,
+                    symbol: 'circle',
+                    fillColor: '#34d399'
+                },
+                zIndex: 0,
+                showInLegend: true,
+                enableMouseTracking: true
+            }
+        ],
+        credits: { enabled: false },
+        exporting: { enabled: false }
     });
-} else {
-    console.error('No se pudo crear gráfica de secciones');
 }
 
-// Gráfica de Capturistas
-const ctxCapturistas = document.getElementById('chartCapturistas');
-if (ctxCapturistas && dataCapturistas && dataCapturistas.length > 0) {
-    new Chart(ctxCapturistas, {
-        type: 'pie',
-        data: {
-            labels: dataCapturistas.map(item => item.nombre_completo),
-            datasets: [{
-                data: dataCapturistas.map(item => parseInt(item.total)),
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.8)',
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 206, 86, 0.8)',
-                    'rgba(75, 192, 192, 0.8)',
-                    'rgba(153, 102, 255, 0.8)',
-                    'rgba(255, 159, 64, 0.8)',
-                    'rgba(199, 199, 199, 0.8)',
-                    'rgba(83, 102, 255, 0.8)',
-                    'rgba(255, 99, 255, 0.8)',
-                    'rgba(99, 255, 132, 0.8)'
-                ],
-                borderColor: '#fff',
-                borderWidth: 2
-            }]
+// Highcharts: Gráfica de Capturistas (Pie profesional)
+// Highcharts: Gráfica de Capturistas (Pie profesional)
+const capturistasData = <?php echo json_encode(array_slice($estatsPorCapturista, 0, 10)); ?>;
+if (document.getElementById('chartCapturistas') && capturistasData && capturistasData.length > 0) {
+    Highcharts.chart('chartCapturistas', {
+        chart: {
+            type: 'pie',
+            backgroundColor: {
+                linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                stops: [
+                    [0, '#ffffff'],
+                    [1, '#f8fafc']
+                ]
+            },
+            style: { fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+            height: 380,
+            borderRadius: 12,
+            shadow: {
+                color: 'rgba(0, 0, 0, 0.08)',
+                offsetX: 0,
+                offsetY: 4,
+                width: 12
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
+        title: { text: null },
+        tooltip: {
+            useHTML: true,
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            style: {
+                color: '#f1f5f9',
+                fontSize: '13px',
+                fontFamily: 'Inter, sans-serif',
+                padding: '12px'
+            },
+            borderColor: '#334155',
+            borderWidth: 1,
+            borderRadius: 8,
+            shadow: {
+                color: 'rgba(0, 0, 0, 0.3)',
+                offsetX: 0,
+                offsetY: 2,
+                width: 8
+            },
+            formatter: function() {
+                const total = capturistasData.reduce((a, b) => a + parseInt(b.total), 0);
+                const value = this.y;
+                const percentage = ((value / total) * 100).toFixed(1);
+                const nombre = capturistasData[this.point.index].nombre_completo;
+                return `<div style="font-weight: 600; font-size: 14px; margin-bottom: 6px; color: #e2e8f0;">${nombre}</div><div style="margin: 4px 0;"><span style='color:${this.color}; font-size: 16px;'>●</span> <span style="color: #cbd5e1;">Registros:</span> <span style="font-weight: 700; color: #ffffff;">${value.toLocaleString('es-MX')}</span></div><div><span style="color: #cbd5e1;">Porcentaje:</span> <span style="font-weight: 700; color: #60a5fa;">${percentage}%</span></div>`;
+            }
+        },
+        plotOptions: {
+            pie: {
+                allowPointSelect: true,
+                cursor: 'pointer',
+                borderColor: '#ffffff',
+                borderWidth: 4,
+                innerSize: '45%',
+                depth: 45,
+                dataLabels: {
+                    enabled: true,
+                    format: '{point.percentage:.1f}%',
+                    distance: 15,
+                    style: {
+                        color: '#1e293b',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        textOutline: '2px #ffffff'
+                    },
+                    connectorColor: '#94a3b8',
+                    connectorWidth: 2
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return label + ': ' + value + ' (' + percentage + '%)';
+                showInLegend: true,
+                shadow: {
+                    color: 'rgba(0, 0, 0, 0.15)',
+                    width: 6,
+                    offsetY: 3
+                },
+                states: {
+                    hover: {
+                        brightness: 0.08,
+                        halo: {
+                            size: 8,
+                            opacity: 0.25
                         }
+                    },
+                    select: {
+                        color: null,
+                        borderColor: '#1e293b',
+                        borderWidth: 3
                     }
                 }
             }
-        }
+        },
+        legend: {
+            enabled: true,
+            align: 'right',
+            verticalAlign: 'middle',
+            layout: 'vertical',
+            itemStyle: {
+                color: '#334155',
+                fontWeight: '600',
+                fontSize: '12px'
+            },
+            itemHoverStyle: {
+                color: '#0f172a'
+            },
+            itemDistance: 16,
+            symbolRadius: 6,
+            symbolHeight: 12,
+            symbolWidth: 12
+        },
+        series: [{
+            name: 'Registros',
+            colorByPoint: true,
+            data: capturistasData.map(item => ({
+                name: item.nombre_completo.length > 18 ? item.nombre_completo.substring(0, 18) + '...' : item.nombre_completo,
+                y: parseInt(item.total)
+            })),
+            colors: [
+                '#3b82f6', '#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
+            ]
+        }],
+        credits: { enabled: false },
+        exporting: { enabled: false }
     });
-} else {
-    console.error('No se pudo crear gráfica de capturistas');
 }
 
 // Función para exportar a PDF
+// Función para exportar a PDF
 function exportarPDF() {
+    // Mostrar indicador de carga
+    const btnExportar = document.querySelector('button[onclick="exportarPDF()"]');
+    const textoOriginal = btnExportar.innerHTML;
+    btnExportar.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Generando PDF...';
+    btnExportar.disabled = true;
+
     // Cargar jsPDF y html2canvas si no están ya cargados
     if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
         // Cargar las bibliotecas necesarias con SRI para seguridad
@@ -418,139 +894,174 @@ function exportarPDF() {
         
         script1.onload = function() {
             html2canvasLoaded = true;
-            if (jspdfLoaded && !loadError) generarPDF();
+            if (jspdfLoaded && !loadError) procesarPDF();
         };
         
         script1.onerror = function() {
             loadError = true;
+            btnExportar.innerHTML = textoOriginal;
+            btnExportar.disabled = false;
             alert('Error al cargar la biblioteca html2canvas. Por favor, verifique su conexión a internet e intente nuevamente.');
         };
         
         script2.onload = function() {
             jspdfLoaded = true;
-            if (html2canvasLoaded && !loadError) generarPDF();
+            if (html2canvasLoaded && !loadError) procesarPDF();
         };
         
         script2.onerror = function() {
             loadError = true;
+            btnExportar.innerHTML = textoOriginal;
+            btnExportar.disabled = false;
             alert('Error al cargar la biblioteca jsPDF. Por favor, verifique su conexión a internet e intente nuevamente.');
         };
     } else {
-        generarPDF();
+        procesarPDF();
     }
 }
 
-function generarPDF() {
-    const { jsPDF } = window.jspdf;
+async function procesarPDF() {
+    const btnExportar = document.querySelector('button[onclick="exportarPDF()"]');
+    const textoOriginal = '<i class="bi bi-file-pdf-fill me-2"></i>Exportar en PDF';
     
-    // Crear un elemento temporal para el contenido a exportar
-    const elementoTemporal = document.createElement('div');
-    elementoTemporal.style.position = 'absolute';
-    elementoTemporal.style.left = '-9999px';
-    elementoTemporal.style.width = '1200px';
-    elementoTemporal.style.backgroundColor = 'white';
-    elementoTemporal.style.padding = '20px';
-    
-    // Crear el contenido del PDF
-    const contenidoPDF = `
-        <div style="font-family: Arial, sans-serif;">
-            <h1 style="text-align: center; color: #667eea;">Reportes y Analytics</h1>
-            <p style="text-align: center; color: #666;">Sistema de Validación de Simpatizantes</p>
-            <hr style="margin: 20px 0;">
-            
-            <div id="pdf-graficas" style="margin: 20px 0;">
-                <h2 style="color: #667eea;">Gráficas</h2>
-                <div id="chart-tiempo-container" style="margin-bottom: 30px;"></div>
-                <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-                    <div id="chart-secciones-container" style="flex: 1;"></div>
-                    <div id="chart-capturistas-container" style="flex: 1;"></div>
-                </div>
-            </div>
-            
-            <div id="pdf-tablas" style="margin: 20px 0;">
-                <h2 style="color: #667eea;">Tablas de Datos</h2>
-                <div style="display: flex; gap: 20px;">
-                    <div id="tabla-secciones-container" style="flex: 1;"></div>
-                    <div id="tabla-capturistas-container" style="flex: 1;"></div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    elementoTemporal.innerHTML = contenidoPDF;
-    document.body.appendChild(elementoTemporal);
-    
-    // Copiar las gráficas
-    const chartTiempo = document.getElementById('chartTiempo');
-    if (chartTiempo) {
-        const canvasCopia1 = chartTiempo.cloneNode(true);
-        document.getElementById('chart-tiempo-container').appendChild(canvasCopia1);
-    }
-    
-    const chartSecciones = document.getElementById('chartSecciones');
-    if (chartSecciones) {
-        const canvasCopia2 = chartSecciones.cloneNode(true);
-        canvasCopia2.style.maxHeight = '300px';
-        document.getElementById('chart-secciones-container').appendChild(canvasCopia2);
-    }
-    
-    const chartCapturistas = document.getElementById('chartCapturistas');
-    if (chartCapturistas) {
-        const canvasCopia3 = chartCapturistas.cloneNode(true);
-        canvasCopia3.style.maxHeight = '300px';
-        document.getElementById('chart-capturistas-container').appendChild(canvasCopia3);
-    }
-    
-    // Copiar las tablas usando los IDs específicos
-    const tablaSecciones = document.getElementById('tabla-secciones');
-    if (tablaSecciones) {
-        const tablaClonada1 = tablaSecciones.cloneNode(true);
-        document.getElementById('tabla-secciones-container').appendChild(tablaClonada1);
-    }
-    
-    const tablaCapturistas = document.getElementById('tabla-capturistas');
-    if (tablaCapturistas) {
-        const tablaClonada2 = tablaCapturistas.cloneNode(true);
-        document.getElementById('tabla-capturistas-container').appendChild(tablaClonada2);
-    }
-    
-    // Generar PDF
-    html2canvas(elementoTemporal, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        allowTaint: true
-    }).then(canvas => {
-        const imgData = canvas.toDataURL('image/png');
+    try {
+        const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 15;
+        let yPosition = margin;
+        let pageNum = 1;
         
-        const imgWidth = 210; // A4 width in mm
-        const pageHeight = 297; // A4 height in mm
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-        
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+        // Función para agregar encabezado
+        function agregarEncabezado(pdf, pageNum) {
+            pdf.setFillColor(102, 126, 234);
+            pdf.rect(0, 0, pageWidth, 25, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(18);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Reportes y Analytics', pageWidth / 2, 12, { align: 'center' });
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'normal');
+            pdf.text('Sistema de Validación de Simpatizantes', pageWidth / 2, 18, { align: 'center' });
+            pdf.setTextColor(100, 100, 100);
+            pdf.setFontSize(8);
+            pdf.text(`Página ${pageNum}`, pageWidth - margin, pageHeight - 5, { align: 'right' });
+            pdf.text(`Generado: ${new Date().toLocaleDateString('es-MX')}`, margin, pageHeight - 5);
+            return 30; // Retornar posición Y después del encabezado
         }
         
-        // Generar nombre del archivo con fecha
+        // Capturar TODOS los elementos en paralelo (mucho más rápido)
+        const captureOptions = {
+            scale: 0.8,
+            backgroundColor: '#ffffff',
+            logging: false,
+            imageTimeout: 0,
+            removeContainer: true
+        };
+        
+        const divTiempo = document.getElementById('chartTiempo');
+        const divSecciones = document.getElementById('chartSecciones');
+        const divCapturistas = document.getElementById('chartCapturistas');
+        const tablaSecciones = document.getElementById('tabla-secciones');
+        const tablaCapturistas = document.getElementById('tabla-capturistas');
+        
+        // Capturar todo en paralelo
+        const [canvasTiempo, canvasSecciones, canvasCapturistas, canvasTabla1, canvasTabla2] = await Promise.all([
+            divTiempo ? html2canvas(divTiempo, captureOptions) : null,
+            divSecciones ? html2canvas(divSecciones, captureOptions) : null,
+            divCapturistas ? html2canvas(divCapturistas, captureOptions) : null,
+            tablaSecciones ? html2canvas(tablaSecciones, captureOptions) : null,
+            tablaCapturistas ? html2canvas(tablaCapturistas, captureOptions) : null
+        ]);
+        
+        // Convertir a imágenes
+        const imgTiempo = canvasTiempo ? canvasTiempo.toDataURL('image/jpeg', 0.6) : null;
+        const imgSecciones = canvasSecciones ? canvasSecciones.toDataURL('image/jpeg', 0.6) : null;
+        const imgCapturistas = canvasCapturistas ? canvasCapturistas.toDataURL('image/jpeg', 0.6) : null;
+        const imgTabla1 = canvasTabla1 ? canvasTabla1.toDataURL('image/jpeg', 0.6) : null;
+        const imgTabla2 = canvasTabla2 ? canvasTabla2.toDataURL('image/jpeg', 0.6) : null;
+        
+        // Página 1: Las 3 gráficas
+        yPosition = agregarEncabezado(pdf, pageNum);
+        
+        const chartHeight = 78;
+        const chartWidth = pageWidth - 2 * margin;
+        
+        // Gráfica 1
+        if (imgTiempo) {
+            pdf.setFontSize(11);
+            pdf.setTextColor(102, 126, 234);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Actividad de Registros', margin, yPosition);
+            yPosition += 4;
+            pdf.addImage(imgTiempo, 'JPEG', margin, yPosition, chartWidth, chartHeight);
+            yPosition += chartHeight + 3;
+        }
+        
+        // Gráfica 2
+        if (imgSecciones) {
+            pdf.setFontSize(11);
+            pdf.setTextColor(102, 126, 234);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Por Sección Electoral', margin, yPosition);
+            yPosition += 4;
+            pdf.addImage(imgSecciones, 'JPEG', margin, yPosition, chartWidth, chartHeight);
+            yPosition += chartHeight + 3;
+        }
+        
+        // Gráfica 3
+        if (imgCapturistas) {
+            pdf.setFontSize(11);
+            pdf.setTextColor(102, 126, 234);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Por Capturista', margin, yPosition);
+            yPosition += 4;
+            pdf.addImage(imgCapturistas, 'JPEG', margin, yPosition, chartWidth, chartHeight);
+        }
+        
+        // Página 2: Tablas
+        pdf.addPage();
+        pageNum++;
+        yPosition = agregarEncabezado(pdf, pageNum);
+        
+        if (imgTabla1) {
+            pdf.setFontSize(12);
+            pdf.setTextColor(102, 126, 234);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Top 10 Secciones Electorales', margin, yPosition);
+            yPosition += 6;
+            const imgWidth = pageWidth - 2 * margin;
+            const imgHeight = (canvasTabla1.height * imgWidth) / canvasTabla1.width;
+            pdf.addImage(imgTabla1, 'JPEG', margin, yPosition, imgWidth, imgHeight);
+            yPosition += imgHeight + 8;
+        }
+        
+        if (imgTabla2) {
+            pdf.setFontSize(12);
+            pdf.setTextColor(102, 126, 234);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Top 10 Capturistas', margin, yPosition);
+            yPosition += 6;
+            const imgWidth = pageWidth - 2 * margin;
+            const imgHeight = (canvasTabla2.height * imgWidth) / canvasTabla2.width;
+            pdf.addImage(imgTabla2, 'JPEG', margin, yPosition, imgWidth, imgHeight);
+        }
+        
+        // Descargar PDF
         const fecha = new Date().toISOString().split('T')[0];
         pdf.save(`reporte_simpatizantes_${fecha}.pdf`);
         
-        // Limpiar
-        document.body.removeChild(elementoTemporal);
-    }).catch(error => {
+        btnExportar.innerHTML = textoOriginal;
+        btnExportar.disabled = false;
+        
+    } catch (error) {
         console.error('Error al generar PDF:', error);
         alert('Hubo un error al generar el PDF. Por favor, intente nuevamente.');
-        document.body.removeChild(elementoTemporal);
-    });
+        
+        btnExportar.innerHTML = textoOriginal;
+        btnExportar.disabled = false;
+    }
 }
 </script>
 

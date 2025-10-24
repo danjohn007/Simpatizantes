@@ -225,11 +225,12 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Sección Electoral <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control <?php echo isset($errores['seccion_electoral']) ? 'is-invalid' : ''; ?>" 
-                                       name="seccion_electoral" required
+                                       name="seccion_electoral" pattern="[0-9]{4}" maxlength="4" required
                                        value="<?php echo htmlspecialchars($simpatizante['seccion_electoral'] ?? ''); ?>">
                                 <?php if (isset($errores['seccion_electoral'])): ?>
                                     <div class="invalid-feedback"><?php echo $errores['seccion_electoral']; ?></div>
                                 <?php endif; ?>
+                                <small class="text-muted">4 dígitos</small>
                             </div>
                             
                             <div class="col-md-4 mb-3">
@@ -264,8 +265,13 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         
                         <div class="mb-3">
                             <label class="form-label">WhatsApp</label>
-                            <input type="tel" class="form-control" name="whatsapp"
+                            <input type="tel" class="form-control <?php echo isset($errores['whatsapp']) ? 'is-invalid' : ''; ?>" 
+                                   name="whatsapp" pattern="[0-9]{10}" maxlength="10"
                                    value="<?php echo htmlspecialchars($simpatizante['whatsapp'] ?? ''); ?>">
+                            <?php if (isset($errores['whatsapp'])): ?>
+                                <div class="invalid-feedback"><?php echo $errores['whatsapp']; ?></div>
+                            <?php endif; ?>
+                            <small class="text-muted">10 dígitos sin espacios ni guiones</small>
                         </div>
                         
                         <div class="mb-3">

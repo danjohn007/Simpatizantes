@@ -142,8 +142,8 @@ class Usuario {
         $passwordHash = password_hash($datos['password'], PASSWORD_DEFAULT);
         
         $sql = "INSERT INTO usuarios (username, email, password, nombre_completo, rol, whatsapp, 
-                twitter, instagram, facebook, youtube, tiktok, activo) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                twitter, instagram, facebook, youtube, tiktok, activo, campana_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $params = [
             $datos['username'],
@@ -157,7 +157,8 @@ class Usuario {
             $datos['facebook'] ?? null,
             $datos['youtube'] ?? null,
             $datos['tiktok'] ?? null,
-            $datos['activo'] ?? 1
+            $datos['activo'] ?? 1,
+            $datos['campana_id'] ?? null
         ];
         
         if ($this->db->execute($sql, $params)) {
@@ -234,6 +235,20 @@ class Usuario {
         } else {
             $sql = "SELECT COUNT(*) as count FROM usuarios WHERE email = ?";
             $result = $this->db->queryOne($sql, [$email]);
+        }
+        return $result['count'] > 0;
+    }
+    
+    /**
+     * Verifica si existe un WhatsApp
+     */
+    public function existeWhatsApp($whatsapp, $excludeId = null) {
+        if ($excludeId) {
+            $sql = "SELECT COUNT(*) as count FROM usuarios WHERE whatsapp = ? AND id != ?";
+            $result = $this->db->queryOne($sql, [$whatsapp, $excludeId]);
+        } else {
+            $sql = "SELECT COUNT(*) as count FROM usuarios WHERE whatsapp = ?";
+            $result = $this->db->queryOne($sql, [$whatsapp]);
         }
         return $result['count'] > 0;
     }

@@ -30,6 +30,14 @@ if (!$campana) {
     exit;
 }
 
+// Verificar que el usuario tenga acceso a esta campaña
+if (!$auth->puedeVerTodasLasCampanas()) {
+    if ($auth->obtenerCampanaId() != $campanaId) {
+        header('Location: ' . BASE_URL . '/acceso-denegado.php');
+        exit;
+    }
+}
+
 // Obtener estadísticas
 $stats = $campanaModel->obtenerEstadisticas($campanaId);
 

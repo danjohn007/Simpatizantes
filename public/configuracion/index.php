@@ -81,6 +81,22 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                                     <input type="number" class="form-control" 
                                            name="config_<?php echo $config['clave']; ?>" 
                                            value="<?php echo htmlspecialchars($config['valor']); ?>">
+                                <?php elseif ($config['tipo'] === 'color'): ?>
+                                    <div class="input-group">
+                                        <input type="color" class="form-control form-control-color" 
+                                               name="config_<?php echo $config['clave']; ?>" 
+                                               value="<?php echo htmlspecialchars($config['valor']); ?>"
+                                               id="color_<?php echo $config['clave']; ?>">
+                                        <input type="text" class="form-control" 
+                                               value="<?php echo htmlspecialchars($config['valor']); ?>"
+                                               id="text_<?php echo $config['clave']; ?>"
+                                               readonly>
+                                    </div>
+                                    <script>
+                                        document.getElementById('color_<?php echo $config['clave']; ?>').addEventListener('input', function(e) {
+                                            document.getElementById('text_<?php echo $config['clave']; ?>').value = e.target.value;
+                                        });
+                                    </script>
                                 <?php else: ?>
                                     <input type="text" class="form-control" 
                                            name="config_<?php echo $config['clave']; ?>" 

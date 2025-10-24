@@ -170,7 +170,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const ubicaciones = <?php echo json_encode($datosMapaCalor); ?>;
 
 // Preparar datos para el mapa de calor
-const heatData = [];
+// Agrupar ubicaciones por coordenadas para contar concentración
+const locationMap = new Map();
 const markers = [];
 
 ubicaciones.forEach(function(ubicacion) {
@@ -178,34 +179,77 @@ ubicaciones.forEach(function(ubicacion) {
     const lng = parseFloat(ubicacion.longitud);
     
     if (!isNaN(lat) && !isNaN(lng)) {
-        // Agregar a mapa de calor
-        heatData.push([lat, lng, 1]);
+        // Redondear coordenadas para agrupar ubicaciones cercanas
+        const latRounded = lat.toFixed(4);
+        const lngRounded = lng.toFixed(4);
+        const key = `${latRounded},${lngRounded}`;
         
-        // Crear marcador
-        const marker = L.marker([lat, lng]).addTo(mapa);
-        marker.bindPopup(`
-            <div class="p-2">
-                <h6 class="mb-1">${ubicacion.nombre_completo}</h6>
-                <p class="mb-1 small"><strong>Sección:</strong> ${ubicacion.seccion_electoral}</p>
-                <p class="mb-0 small text-muted">${new Date(ubicacion.created_at).toLocaleDateString()}</p>
-            </div>
-        `);
-        markers.push(marker);
+        if (locationMap.has(key)) {
+            const existing = locationMap.get(key);
+            existing.count++;
+            existing.nombres.push(ubicacion.nombre_completo);
+        } else {
+            locationMap.set(key, {
+                lat: lat,
+                lng: lng,
+                count: 1,
+                nombres: [ubicacion.nombre_completo],
+                seccion: ubicacion.seccion_electoral
+            });
+        }
     }
 });
 
-// Agregar capa de mapa de calor
+// Crear datos del mapa de calor con intensidad basada en concentración
+const heatData = [];
+locationMap.forEach(function(location) {
+    // La intensidad será proporcional al número de simpatizantes en ese punto
+    heatData.push([location.lat, location.lng, location.count]);
+    
+    // Crear marcador con información de la concentración
+    const marker = L.circleMarker([location.lat, location.lng], {
+        radius: Math.min(5 + location.count, 15),
+        fillColor: location.count > 10 ? '#dc3545' : location.count > 5 ? '#ffc107' : '#667eea',
+        color: '#fff',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.7
+    }).addTo(mapa);
+    
+    const nombresLista = location.nombres.length > 5 
+        ? location.nombres.slice(0, 5).join('<br>') + `<br><em>... y ${location.nombres.length - 5} más</em>`
+        : location.nombres.join('<br>');
+    
+    marker.bindPopup(`
+        <div class="p-2">
+            <h6 class="mb-2">
+                <span class="badge bg-primary">${location.count}</span>
+                Simpatizante${location.count > 1 ? 's' : ''}
+            </h6>
+            <p class="mb-1 small"><strong>Sección:</strong> ${location.seccion}</p>
+            <hr class="my-2">
+            <div class="small" style="max-height: 150px; overflow-y: auto;">
+                ${nombresLista}
+            </div>
+        </div>
+    `);
+    markers.push(marker);
+});
+
+// Agregar capa de mapa de calor con mejor configuración
 if (heatData.length > 0) {
     L.heatLayer(heatData, {
-        radius: 25,
-        blur: 35,
-        maxZoom: 17,
+        radius: 30,
+        blur: 25,
+        maxZoom: 13,
+        max: Math.max(...heatData.map(d => d[2])), // Máximo basado en la concentración real
         gradient: {
-            0.0: 'blue',
-            0.5: 'lime',
-            0.7: 'yellow',
-            0.9: 'orange',
-            1.0: 'red'
+            0.0: '#667eea',
+            0.2: '#00bfff',
+            0.4: '#00ff00',
+            0.6: '#ffff00',
+            0.8: '#ff8c00',
+            1.0: '#ff0000'
         }
     }).addTo(mapa);
     
@@ -213,6 +257,25 @@ if (heatData.length > 0) {
     const group = L.featureGroup(markers);
     mapa.fitBounds(group.getBounds().pad(0.1));
 }
+
+// Agregar leyenda del mapa de calor
+const legend = L.control({position: 'bottomright'});
+legend.onAdd = function(map) {
+    const div = L.DomUtil.create('div', 'info legend');
+    div.innerHTML = `
+        <div style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            <h6 style="margin: 0 0 5px 0; font-size: 0.9rem;"><strong>Concentración</strong></h6>
+            <div style="font-size: 0.8rem;">
+                <i style="background: #667eea; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Baja<br>
+                <i style="background: #00ff00; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Media<br>
+                <i style="background: #ffff00; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Alta<br>
+                <i style="background: #ff0000; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Muy Alta
+            </div>
+        </div>
+    `;
+    return div;
+};
+legend.addTo(mapa);
 </script>
 
 <?php include __DIR__ . '/../app/views/layouts/footer.php'; ?>

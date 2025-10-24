@@ -170,7 +170,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <div class="row">
         <!-- Top Secciones -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm" id="tabla-secciones">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">
                         <i class="bi bi-award-fill me-2"></i>Top 10 Secciones
@@ -208,7 +208,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         
         <!-- Top Capturistas -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0 shadow-sm" id="tabla-capturistas">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">
                         <i class="bi bi-trophy-fill me-2"></i>Top 10 Capturistas
@@ -398,18 +398,31 @@ if (ctxCapturistas && dataCapturistas && dataCapturistas.length > 0) {
 function exportarPDF() {
     // Cargar jsPDF y html2canvas si no están ya cargados
     if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-        // Cargar las bibliotecas necesarias
+        // Cargar las bibliotecas necesarias con SRI para seguridad
         const script1 = document.createElement('script');
         script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        script1.integrity = 'sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==';
+        script1.crossOrigin = 'anonymous';
         document.head.appendChild(script1);
         
         const script2 = document.createElement('script');
         script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script2.integrity = 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==';
+        script2.crossOrigin = 'anonymous';
         document.head.appendChild(script2);
         
-        // Esperar a que se carguen las bibliotecas
+        // Esperar a que ambas bibliotecas se carguen
+        let html2canvasLoaded = false;
+        let jspdfLoaded = false;
+        
+        script1.onload = function() {
+            html2canvasLoaded = true;
+            if (jspdfLoaded) generarPDF();
+        };
+        
         script2.onload = function() {
-            setTimeout(() => generarPDF(), 500);
+            jspdfLoaded = true;
+            if (html2canvasLoaded) generarPDF();
         };
     } else {
         generarPDF();
@@ -477,14 +490,14 @@ function generarPDF() {
         document.getElementById('chart-capturistas-container').appendChild(canvasCopia3);
     }
     
-    // Copiar las tablas
-    const tablaSecciones = document.querySelector('.card:has(.table-sm)');
+    // Copiar las tablas usando los IDs específicos
+    const tablaSecciones = document.getElementById('tabla-secciones');
     if (tablaSecciones) {
         const tablaClonada1 = tablaSecciones.cloneNode(true);
         document.getElementById('tabla-secciones-container').appendChild(tablaClonada1);
     }
     
-    const tablaCapturistas = document.querySelectorAll('.card:has(.table-sm)')[1];
+    const tablaCapturistas = document.getElementById('tabla-capturistas');
     if (tablaCapturistas) {
         const tablaClonada2 = tablaCapturistas.cloneNode(true);
         document.getElementById('tabla-capturistas-container').appendChild(tablaClonada2);

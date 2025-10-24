@@ -13,9 +13,9 @@ ini_set('display_errors', 1);
 
 // Configuración de Base de Datos
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'simpatizantes_db');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'recaudab_simpatiza');
+define('DB_USER', 'recaudab_simpatiza');
+define('DB_PASS', 'Danjohn007!');
 define('DB_CHARSET', 'utf8mb4');
 
 // Configuración de la Aplicación

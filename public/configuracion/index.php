@@ -97,6 +97,9 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                                             document.getElementById('text_<?php echo $config['clave']; ?>').value = e.target.value;
                                         });
                                     </script>
+                                <?php elseif ($config['clave'] === 'terminos_condiciones'): ?>
+                                    <textarea class="form-control" rows="8"
+                                              name="config_<?php echo $config['clave']; ?>"><?php echo htmlspecialchars($config['valor']); ?></textarea>
                                 <?php else: ?>
                                     <input type="text" class="form-control" 
                                            name="config_<?php echo $config['clave']; ?>" 

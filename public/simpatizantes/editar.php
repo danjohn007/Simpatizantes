@@ -259,8 +259,9 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="form-label">Teléfono</label>
-                            <input type="tel" class="form-control" name="telefono"
+                            <input type="tel" class="form-control" name="telefono" pattern="[0-9]{10}" maxlength="10"
                                    value="<?php echo htmlspecialchars($simpatizante['telefono'] ?? ''); ?>">
+                            <small class="text-muted">10 dígitos sin espacios ni guiones</small>
                         </div>
                         
                         <div class="mb-3">

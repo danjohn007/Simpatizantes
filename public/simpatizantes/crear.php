@@ -61,8 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    if (isset($_FILES['firma_digital']) && $_FILES['firma_digital']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['firma_digital'], 'firmas');
+    // Procesar firma digital desde canvas (base64)
+    if (!empty($_POST['firma_digital'])) {
+        $result = $controller->procesarFirmaBase64($_POST['firma_digital']);
         if (isset($result['success'])) {
             $datos['firma_digital'] = $result['archivo'];
         }
@@ -105,8 +106,35 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         </div>
     <?php endif; ?>
     
+    <!-- OCR INE -->
+    <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="mb-2"><i class="bi bi-camera-fill me-2"></i>Lectura OCR de INE</h5>
+                    <p class="text-muted mb-0 small">
+                        Sube una foto clara del INE frontal para extraer automáticamente los datos
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <input type="file" class="form-control" id="ine_ocr" accept="image/*" style="display: none;">
+                    <button type="button" class="btn btn-info w-100" onclick="document.getElementById('ine_ocr').click()">
+                        <i class="bi bi-upload me-2"></i>Subir INE para OCR
+                    </button>
+                </div>
+            </div>
+            <div id="ocr-loading" class="mt-3 text-center" style="display: none;">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Procesando...</span>
+                </div>
+                <p class="mt-2 text-muted">Procesando imagen con OCR...</p>
+            </div>
+            <div id="ocr-result" class="mt-3" style="display: none;"></div>
+        </div>
+    </div>
+    
     <!-- Formulario -->
-    <form method="POST" action="" enctype="multipart/form-data">
+    <form method="POST" action="" enctype="multipart/form-data" id="formSimpatizante">
         <div class="row">
             <!-- Información Personal -->
             <div class="col-lg-6">
@@ -293,20 +321,23 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label class="form-label">Latitud</label>
-                                <input type="text" class="form-control" name="latitud" id="latitud"
+                                <label class="form-label">Latitud <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="latitud" id="latitud" required
                                        value="<?php echo htmlspecialchars($_POST['latitud'] ?? ''); ?>">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Longitud</label>
-                                <input type="text" class="form-control" name="longitud" id="longitud"
+                                <label class="form-label">Longitud <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="longitud" id="longitud" required
                                        value="<?php echo htmlspecialchars($_POST['longitud'] ?? ''); ?>">
                             </div>
                         </div>
                         
                         <button type="button" class="btn btn-sm btn-info mb-3" onclick="obtenerUbicacion()">
-                            <i class="bi bi-geo-fill me-1"></i>Detectar Ubicación Actual
+                            <i class="bi bi-geo-fill me-1"></i>Detectar Ubicación Actual (Obligatorio)
                         </button>
+                        <div id="ubicacion-alert" class="alert alert-warning d-none">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Debe detectar la ubicación antes de continuar
+                        </div>
                         
                         <div class="mb-3">
                             <label class="form-label">INE Frontal</label>
@@ -320,7 +351,16 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         
                         <div class="mb-3">
                             <label class="form-label">Firma Digital</label>
-                            <input type="file" class="form-control" name="firma_digital" accept="image/*">
+                            <div class="border rounded p-2 bg-white">
+                                <canvas id="signatureCanvas" width="400" height="200" class="border" style="cursor: crosshair; touch-action: none;"></canvas>
+                            </div>
+                            <input type="hidden" name="firma_digital" id="firma_digital_data">
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="clearSignature()">
+                                    <i class="bi bi-eraser-fill me-1"></i>Limpiar Firma
+                                </button>
+                                <small class="text-muted ms-2">Firme con el mouse o dedo</small>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -366,18 +406,202 @@ include __DIR__ . '/../../app/views/layouts/header.php';
 
 <script>
 function obtenerUbicacion() {
+    const alertDiv = document.getElementById('ubicacion-alert');
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
             document.getElementById('latitud').value = position.coords.latitude.toFixed(8);
             document.getElementById('longitud').value = position.coords.longitude.toFixed(8);
+            alertDiv.classList.add('d-none');
             mostrarMensaje('Ubicación detectada correctamente', 'success');
         }, function() {
-            mostrarMensaje('No se pudo obtener la ubicación', 'danger');
+            alertDiv.classList.remove('d-none');
+            mostrarMensaje('No se pudo obtener la ubicación. Por favor, permita el acceso a su ubicación.', 'danger');
         });
     } else {
+        alertDiv.classList.remove('d-none');
         mostrarMensaje('Geolocalización no soportada por este navegador', 'danger');
     }
 }
+
+// Validar ubicación antes de enviar el formulario
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const latitud = document.getElementById('latitud').value;
+        const longitud = document.getElementById('longitud').value;
+        if (!latitud || !longitud) {
+            e.preventDefault();
+            document.getElementById('ubicacion-alert').classList.remove('d-none');
+            alert('Debe detectar la ubicación antes de guardar el registro');
+            return false;
+        }
+        
+        // Guardar firma digital como base64
+        if (signaturePad && !signaturePad.isEmpty()) {
+            document.getElementById('firma_digital_data').value = canvas.toDataURL('image/png');
+        }
+    });
+});
+
+// Canvas de Firma Digital
+const canvas = document.getElementById('signatureCanvas');
+const ctx = canvas.getContext('2d');
+let isDrawing = false;
+let lastX = 0;
+let lastY = 0;
+
+// Configurar canvas
+ctx.strokeStyle = '#000';
+ctx.lineWidth = 2;
+ctx.lineCap = 'round';
+ctx.lineJoin = 'round';
+
+// Funciones de dibujo para mouse
+canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    lastX = e.clientX - rect.left;
+    lastY = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    lastX = x;
+    lastY = y;
+});
+
+canvas.addEventListener('mouseup', () => {
+    isDrawing = false;
+});
+
+canvas.addEventListener('mouseout', () => {
+    isDrawing = false;
+});
+
+// Funciones de dibujo para touch (móvil)
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    lastX = touch.clientX - rect.left;
+    lastY = touch.clientY - rect.top;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    lastX = x;
+    lastY = y;
+});
+
+canvas.addEventListener('touchend', () => {
+    isDrawing = false;
+});
+
+// Función para limpiar firma
+function clearSignature() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('firma_digital_data').value = '';
+}
+
+// Objeto signaturePad simple para compatibilidad
+const signaturePad = {
+    isEmpty: function() {
+        const pixelBuffer = new Uint32Array(
+            ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+        );
+        return !pixelBuffer.some(color => color !== 0);
+    }
+};
+
+// OCR de INE
+document.getElementById('ine_ocr').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Mostrar loading
+    document.getElementById('ocr-loading').style.display = 'block';
+    document.getElementById('ocr-result').style.display = 'none';
+    
+    // Crear FormData
+    const formData = new FormData();
+    formData.append('ine_imagen', file);
+    
+    // Enviar a API
+    fetch('<?php echo BASE_URL; ?>/public/api/procesar-ocr.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('ocr-loading').style.display = 'none';
+        
+        if (data.error) {
+            document.getElementById('ocr-result').innerHTML = 
+                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>' + 
+                data.error + '</div>';
+            document.getElementById('ocr-result').style.display = 'block';
+            return;
+        }
+        
+        // Llenar formulario con datos extraídos
+        if (data.datos) {
+            if (data.datos.nombre_completo) {
+                document.querySelector('[name="nombre_completo"]').value = data.datos.nombre_completo;
+            }
+            if (data.datos.curp) {
+                document.querySelector('[name="curp"]').value = data.datos.curp;
+            }
+            if (data.datos.clave_elector) {
+                document.querySelector('[name="clave_elector"]').value = data.datos.clave_elector;
+            }
+            if (data.datos.domicilio_completo) {
+                document.querySelector('[name="domicilio_completo"]').value = data.datos.domicilio_completo;
+            }
+            if (data.datos.seccion_electoral) {
+                document.querySelector('[name="seccion_electoral"]').value = data.datos.seccion_electoral;
+            }
+            if (data.datos.vigencia) {
+                document.querySelector('[name="vigencia"]').value = data.datos.vigencia;
+            }
+            if (data.datos.sexo) {
+                document.querySelector('[name="sexo"]').value = data.datos.sexo;
+            }
+            
+            document.getElementById('ocr-result').innerHTML = 
+                '<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i>' +
+                'Datos extraídos correctamente. Revise y complete la información faltante.</div>';
+            document.getElementById('ocr-result').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        document.getElementById('ocr-loading').style.display = 'none';
+        document.getElementById('ocr-result').innerHTML = 
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>' +
+            'Error al procesar la imagen: ' + error.message + '</div>';
+        document.getElementById('ocr-result').style.display = 'block';
+    });
+});
 </script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

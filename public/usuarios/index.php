@@ -143,6 +143,11 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                                                class="btn btn-warning btn-sm" title="Editar">
                                                 <i class="bi bi-pencil-fill"></i>
                                             </a>
+                                            <a href="suspender.php?id=<?php echo $usuario['id']; ?>" 
+                                               class="btn btn-<?php echo $usuario['activo'] ? 'secondary' : 'success'; ?> btn-sm" 
+                                               title="<?php echo $usuario['activo'] ? 'Suspender' : 'Activar'; ?>">
+                                                <i class="bi bi-<?php echo $usuario['activo'] ? 'pause' : 'play'; ?>-circle-fill"></i>
+                                            </a>
                                             <?php if ($auth->obtenerRol() === 'super_admin'): ?>
                                                 <a href="eliminar.php?id=<?php echo $usuario['id']; ?>" 
                                                    class="btn btn-danger btn-sm" title="Eliminar"

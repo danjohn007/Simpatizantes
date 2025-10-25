@@ -212,6 +212,14 @@ class Usuario {
     }
     
     /**
+     * Cambia el estado activo/suspendido de un usuario
+     */
+    public function cambiarEstado($id, $nuevoEstado) {
+        $sql = "UPDATE usuarios SET activo = ? WHERE id = ?";
+        return $this->db->execute($sql, [$nuevoEstado, $id]);
+    }
+    
+    /**
      * Verifica si existe un username
      */
     public function existeUsername($username, $excludeId = null) {

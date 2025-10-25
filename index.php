@@ -119,11 +119,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <hr class="my-4">
                         
-                        <div class="text-center text-muted small">
-                            <p class="mb-2"><strong>Credenciales de prueba:</strong></p>
-                            <p class="mb-1">Super Admin: <code>superadmin / admin123</code></p>
-                            <p class="mb-1">Coordinador: <code>coordinador1 / admin123</code></p>
-                            <p class="mb-0">Capturista: <code>capturista1 / admin123</code></p>
+                        <div class="text-center">
+                            <p class="mb-2">
+                                <a href="<?php echo BASE_URL; ?>/public/recuperar-password.php" class="text-decoration-none">
+                                    <i class="bi bi-key-fill me-1"></i>¿Olvidaste tu contraseña?
+                                </a>
+                            </p>
+                            <p class="mb-0">
+                                <a href="<?php echo BASE_URL; ?>/public/registro-publico.php" class="text-decoration-none fw-bold">
+                                    <i class="bi bi-person-plus-fill me-1"></i>Registrarse como Simpatizante
+                                </a>
+                            </p>
                         </div>
                     </div>
                 </div>

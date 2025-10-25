@@ -1,6 +1,13 @@
--- Actualización del Sistema de Simpatizantes
+-- Actualización del Sistema de Simpatizantes (versión alternativa sin INFORMATION_SCHEMA)
 -- Fecha: 2024
--- Descripción: Actualizaciones y mejoras del sistema
+-- Nota: este script evita consultas a INFORMATION_SCHEMA para no necesitar permisos adicionales.
+--       Usa procedimientos con CONTINUE HANDLER para ignorar errores cuando el objeto ya existe.
+--       Ejecutar desde CLI: mysql -u usuario -p basedatos < update_mejoras_2024.sql
+--       Hacer backup antes de ejecutar en producción.
+
+-- 0. Ajustes de seguridad y recomendaciones
+-- - Si prefieres, ejecuta solo las secciones necesarias en un entorno de pruebas primero.
+-- - Los handlers silencian errores dentro del procedimiento: revisa los logs si algo no se aplica.
 
 -- 1. Tabla para recuperación de contraseñas
 CREATE TABLE IF NOT EXISTS recuperacion_password (
@@ -24,7 +31,7 @@ WHERE NOT EXISTS (SELECT 1 FROM configuracion WHERE clave = 'registro_publico_ha
 
 -- Términos y condiciones
 INSERT INTO configuracion (clave, valor, descripcion, tipo) 
-SELECT 'terminos_condiciones', 'Al registrarse como simpatizante, acepta que sus datos personales sean utilizados con fines electorales y de organización política. Sus datos serán tratados de manera confidencial y conforme a la Ley de Protección de Datos Personales. Puede solicitar la eliminación de sus datos en cualquier momento contactando al administrador del sistema.', 'Términos y condiciones para registro público', 'texto'
+SELECT 'terminos_condiciones', 'Al registrarse como simpatizante, acepta que sus datos personales sean utilizados con fines electorales y de organización política. Sus datos serán tratados de manera responsable conforme a la legislación aplicable.', 'Términos y condiciones por defecto', 'texto'
 WHERE NOT EXISTS (SELECT 1 FROM configuracion WHERE clave = 'terminos_condiciones');
 
 -- Configuración de API OCR
@@ -40,28 +47,46 @@ INSERT INTO configuracion (clave, valor, descripcion, tipo)
 SELECT 'ocr_habilitado', 'false', 'Habilitar extracción OCR de INE', 'boolean'
 WHERE NOT EXISTS (SELECT 1 FROM configuracion WHERE clave = 'ocr_habilitado');
 
--- 3. Agregar columna telefono a simpatizantes si no existe
--- (Ya existe en el esquema actual, esta línea es por seguridad)
-ALTER TABLE simpatizantes 
-ADD COLUMN IF NOT EXISTS telefono VARCHAR(20) AFTER seccion_electoral;
+-- 3. Agregar columna telefono a simpatizantes si no existe (método portable usando handler)
+DELIMITER $$
+DROP PROCEDURE IF EXISTS add_col_telefono$$
+CREATE PROCEDURE add_col_telefono()
+BEGIN
+  -- Ignorar cualquier excepción (por ejemplo: columna ya existe)
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+  ALTER TABLE simpatizantes
+    ADD COLUMN telefono VARCHAR(20) AFTER seccion_electoral;
+END$$
+CALL add_col_telefono()$$
+DROP PROCEDURE IF EXISTS add_col_telefono$$
+DELIMITER ;
 
--- 4. Agregar índices para mejorar rendimiento
-ALTER TABLE simpatizantes 
-ADD INDEX IF NOT EXISTS idx_telefono (telefono);
+-- 4. Agregar índices para mejorar rendimiento (ignorar si ya existen)
+DELIMITER $$
+DROP PROCEDURE IF EXISTS add_idxs_simpatizantes$$
+CREATE PROCEDURE add_idxs_simpatizantes()
+BEGIN
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+  ALTER TABLE simpatizantes ADD INDEX idx_telefono (telefono);
+  ALTER TABLE simpatizantes ADD INDEX idx_metodo_captura (metodo_captura);
+END$$
+CALL add_idxs_simpatizantes()$$
+DROP PROCEDURE IF EXISTS add_idxs_simpatizantes$$
+DELIMITER ;
 
-ALTER TABLE simpatizantes 
-ADD INDEX IF NOT EXISTS idx_metodo_captura (metodo_captura);
-
--- 5. Agregar columna campana_id a usuarios si no existe
-ALTER TABLE usuarios 
-ADD COLUMN IF NOT EXISTS campana_id INT AFTER rol;
-
-ALTER TABLE usuarios
-ADD CONSTRAINT IF NOT EXISTS fk_usuarios_campana 
-FOREIGN KEY (campana_id) REFERENCES campanas(id) ON DELETE SET NULL;
-
-ALTER TABLE usuarios
-ADD INDEX IF NOT EXISTS idx_campana (campana_id);
+-- 5. Agregar columna campana_id a usuarios si no existe y la FK (ignorar si ya existen)
+DELIMITER $$
+DROP PROCEDURE IF EXISTS add_campana_usuarios$$
+CREATE PROCEDURE add_campana_usuarios()
+BEGIN
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+  ALTER TABLE usuarios ADD COLUMN campana_id INT AFTER rol;
+  ALTER TABLE usuarios ADD CONSTRAINT fk_usuarios_campana FOREIGN KEY (campana_id) REFERENCES campanas(id) ON DELETE SET NULL;
+  ALTER TABLE usuarios ADD INDEX idx_campana (campana_id);
+END$$
+CALL add_campana_usuarios()$$
+DROP PROCEDURE IF EXISTS add_campana_usuarios$$
+DELIMITER ;
 
 -- 6. Actualizar configuraciones de notificaciones
 UPDATE configuracion 
@@ -103,8 +128,18 @@ SELECT 'max_registros_por_dia', '100', 'Máximo de registros permitidos por día
 WHERE NOT EXISTS (SELECT 1 FROM configuracion WHERE clave = 'max_registros_por_dia');
 
 -- 11. Actualizar comentarios y metadata
-ALTER TABLE simpatizantes 
-MODIFY COLUMN metodo_captura ENUM('manual', 'escaneo', 'app', 'web') DEFAULT 'manual' COMMENT 'Método de captura del registro';
+-- (Si necesitas cambiar el ENUM y existen valores fuera de la nueva lista, ALTER puede fallar)
+DELIMITER $$
+DROP PROCEDURE IF EXISTS modify_metodo_captura$$
+CREATE PROCEDURE modify_metodo_captura()
+BEGIN
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;
+  ALTER TABLE simpatizantes 
+    MODIFY COLUMN metodo_captura ENUM('manual', 'escaneo', 'app', 'web') DEFAULT 'manual' COMMENT 'Método de captura del registro';
+END$$
+CALL modify_metodo_captura()$$
+DROP PROCEDURE IF EXISTS modify_metodo_captura$$
+DELIMITER ;
 
 -- 12. Verificar y mostrar configuración actualizada
 SELECT 'Actualización completada exitosamente' AS mensaje;
@@ -137,11 +172,12 @@ WHERE clave IN (
 ORDER BY clave;
 
 -- NOTAS IMPORTANTES:
--- 1. Este script es seguro para ejecutar múltiples veces (idempotente)
--- 2. Hacer backup de la base de datos antes de ejecutar en producción
--- 3. Revisar y ajustar los valores por defecto según necesidades
--- 4. Los usuarios de prueba NO se eliminan automáticamente por seguridad
--- 5. Descomentar la sección de eliminación solo después de crear nuevos usuarios admin
+-- 1. Este script intenta ser seguro para ejecutar múltiples veces (idempotente) y no requiere SELECT sobre information_schema.
+-- 2. Los procedimientos usan CONTINUE HANDLER FOR SQLEXCEPTION para ignorar errores como "columna ya existe" o "índice ya existe".
+--    Eso también silencirá otros errores internos del bloque; ejecutar primero en entorno de pruebas y revisar logs.
+-- 3. Hacer backup de la base de datos antes de ejecutar en producción.
+-- 4. Revisar la sección de ENUM metodo_captura si hay valores en la tabla que no están en la nueva lista.
+-- 5. Descomentar la sección de eliminación solo después de crear nuevos usuarios admin.
 
 -- INSTRUCCIONES POST-INSTALACIÓN:
 -- 1. Acceder a Configuración en el sistema

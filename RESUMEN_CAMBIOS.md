@@ -167,13 +167,13 @@ O desde phpMyAdmin:
 
 ### Seguridad
 - ⚠️ La eliminación de usuarios es PERMANENTE
-- 💾 Hacer backup antes de eliminar usuarios
+- 💾 Hacer respaldo antes de eliminar usuarios
 - 🔐 Solo Super Admin puede eliminar usuarios
 - 🔒 Configurar contraseñas SMTP de forma segura
 
 ### Producción
 - ✅ Todos los archivos han sido validados (sin errores de sintaxis)
-- ✅ El script SQL es idempotente (puede ejecutarse múltiples veces)
+- ✅ El script SQL es idempotente (puede ejecutarse múltiples veces sin duplicar datos)
 - ✅ Las configuraciones se cargan dinámicamente
 - ✅ Compatible con PHP 7.4+ y MySQL 5.7+
 

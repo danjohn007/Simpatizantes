@@ -78,7 +78,7 @@ class SimpatizanteController {
         }
         
         // Validaciones
-        $errores = $this->validar($datos);
+        $errores = $this->validar($datos, null, $esRegistroPublico);
         if (!empty($errores)) {
             return ['error' => 'Errores de validación', 'errores' => $errores];
         }
@@ -185,7 +185,7 @@ class SimpatizanteController {
     /**
      * Valida los datos de un simpatizante
      */
-    private function validar($datos, $excludeId = null) {
+    private function validar($datos, $excludeId = null, $esRegistroPublico = false) {
         $errores = [];
         
         // Campos obligatorios
@@ -201,7 +201,8 @@ class SimpatizanteController {
             $errores['seccion_electoral'] = 'La sección electoral es obligatoria';
         }
         
-        if (empty($datos['campana_id'])) {
+        // Solo validar campaña si NO es registro público
+        if (!$esRegistroPublico && empty($datos['campana_id'])) {
             $errores['campana_id'] = 'Debe seleccionar una campaña';
         }
         

@@ -176,6 +176,37 @@ class UsuarioController {
     }
     
     /**
+     * Cambia el estado (activo/suspendido) de un usuario
+     */
+    public function cambiarEstado($id, $nuevoEstado) {
+        $this->auth->requiereRol(['super_admin', 'admin']);
+        
+        $datosAnteriores = $this->model->obtenerPorId($id);
+        
+        if (!$datosAnteriores) {
+            return ['error' => 'Usuario no encontrado'];
+        }
+        
+        $result = $this->model->cambiarEstado($id, $nuevoEstado);
+        
+        if ($result) {
+            $accion = $nuevoEstado ? 'activar_usuario' : 'suspender_usuario';
+            $this->logModel->registrar(
+                $this->auth->obtenerUsuarioId(),
+                $accion,
+                'usuarios',
+                $id,
+                ['activo' => $datosAnteriores['activo']],
+                ['activo' => $nuevoEstado]
+            );
+            
+            return ['success' => true];
+        }
+        
+        return ['error' => 'Error al cambiar estado del usuario'];
+    }
+    
+    /**
      * Valida los datos de un usuario
      */
     private function validar($datos, $excludeId = null) {

@@ -75,6 +75,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                            value="<?php echo htmlspecialchars($_GET['busqueda'] ?? ''); ?>">
                 </div>
                 
+                <?php if ($auth->puedeVerTodasLasCampanas()): ?>
                 <div class="col-md-2">
                     <label class="form-label small">Campaña</label>
                     <select class="form-select" name="campana_id">
@@ -87,6 +88,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php endif; ?>
                 
                 <div class="col-md-2">
                     <label class="form-label small">Sección</label>

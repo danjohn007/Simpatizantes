@@ -293,20 +293,23 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     <div class="card-body">
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label class="form-label">Latitud</label>
-                                <input type="text" class="form-control" name="latitud" id="latitud"
+                                <label class="form-label">Latitud <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="latitud" id="latitud" required
                                        value="<?php echo htmlspecialchars($_POST['latitud'] ?? ''); ?>">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Longitud</label>
-                                <input type="text" class="form-control" name="longitud" id="longitud"
+                                <label class="form-label">Longitud <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="longitud" id="longitud" required
                                        value="<?php echo htmlspecialchars($_POST['longitud'] ?? ''); ?>">
                             </div>
                         </div>
                         
                         <button type="button" class="btn btn-sm btn-info mb-3" onclick="obtenerUbicacion()">
-                            <i class="bi bi-geo-fill me-1"></i>Detectar Ubicación Actual
+                            <i class="bi bi-geo-fill me-1"></i>Detectar Ubicación Actual (Obligatorio)
                         </button>
+                        <div id="ubicacion-alert" class="alert alert-warning d-none">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Debe detectar la ubicación antes de continuar
+                        </div>
                         
                         <div class="mb-3">
                             <label class="form-label">INE Frontal</label>
@@ -366,18 +369,37 @@ include __DIR__ . '/../../app/views/layouts/header.php';
 
 <script>
 function obtenerUbicacion() {
+    const alertDiv = document.getElementById('ubicacion-alert');
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
             document.getElementById('latitud').value = position.coords.latitude.toFixed(8);
             document.getElementById('longitud').value = position.coords.longitude.toFixed(8);
+            alertDiv.classList.add('d-none');
             mostrarMensaje('Ubicación detectada correctamente', 'success');
         }, function() {
-            mostrarMensaje('No se pudo obtener la ubicación', 'danger');
+            alertDiv.classList.remove('d-none');
+            mostrarMensaje('No se pudo obtener la ubicación. Por favor, permita el acceso a su ubicación.', 'danger');
         });
     } else {
+        alertDiv.classList.remove('d-none');
         mostrarMensaje('Geolocalización no soportada por este navegador', 'danger');
     }
 }
+
+// Validar ubicación antes de enviar el formulario
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const latitud = document.getElementById('latitud').value;
+        const longitud = document.getElementById('longitud').value;
+        if (!latitud || !longitud) {
+            e.preventDefault();
+            document.getElementById('ubicacion-alert').classList.remove('d-none');
+            alert('Debe detectar la ubicación antes de guardar el registro');
+            return false;
+        }
+    });
+});
 </script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

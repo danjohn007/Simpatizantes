@@ -68,9 +68,14 @@ class SimpatizanteController {
     
     /**
      * Crea un nuevo simpatizante
+     * @param array $datos Datos del simpatizante
+     * @param bool $esRegistroPublico Indica si es un registro público (no requiere autenticación)
      */
-    public function crear($datos) {
-        $this->auth->requiereAutenticacion();
+    public function crear($datos, $esRegistroPublico = false) {
+        // Si no es registro público, requiere autenticación
+        if (!$esRegistroPublico) {
+            $this->auth->requiereAutenticacion();
+        }
         
         // Validaciones
         $errores = $this->validar($datos);
@@ -78,23 +83,25 @@ class SimpatizanteController {
             return ['error' => 'Errores de validación', 'errores' => $errores];
         }
         
-        // Asignar capturista actual si no está asignado
-        if (empty($datos['capturista_id'])) {
+        // Asignar capturista actual si no está asignado y no es registro público
+        if (empty($datos['capturista_id']) && !$esRegistroPublico) {
             $datos['capturista_id'] = $this->auth->obtenerUsuarioId();
         }
         
         $result = $this->model->crear($datos);
         
         if (isset($result['success'])) {
-            // Registrar en log
-            $this->logModel->registrar(
-                $this->auth->obtenerUsuarioId(),
-                'crear_simpatizante',
-                'simpatizantes',
-                $result['id'],
-                null,
-                $datos
-            );
+            // Registrar en log solo si hay un usuario autenticado
+            if ($this->auth->estaAutenticado()) {
+                $this->logModel->registrar(
+                    $this->auth->obtenerUsuarioId(),
+                    'crear_simpatizante',
+                    'simpatizantes',
+                    $result['id'],
+                    null,
+                    $datos
+                );
+            }
         }
         
         return $result;

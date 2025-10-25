@@ -190,7 +190,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="chartActividad" height="60"></canvas>
+                    <canvas id="chartActividad" height="100"></canvas>
                 </div>
             </div>
         </div>

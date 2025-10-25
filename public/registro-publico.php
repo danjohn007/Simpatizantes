@@ -17,14 +17,23 @@ if (!$registroHabilitado) {
     exit;
 }
 
+// Cargar colores personalizados desde configuración
+$sql_colors = "SELECT clave, valor FROM configuracion WHERE tipo = 'color'";
+$colores = $db->query($sql_colors);
+$color_primario = '#667eea';
+$color_secundario = '#764ba2';
+foreach ($colores as $color) {
+    if ($color['clave'] === 'color_primario') $color_primario = $color['valor'];
+    if ($color['clave'] === 'color_secundario') $color_secundario = $color['valor'];
+}
+
 $controller = new SimpatizanteController();
 
 $error = '';
 $success = '';
 $errores = [];
 
-// Generar números para captcha
-session_start();
+// Generar números para captcha (la sesión ya está iniciada en AuthController)
 if (!isset($_SESSION['captcha_num1']) || !isset($_SESSION['captcha_num2'])) {
     $_SESSION['captcha_num1'] = rand(1, 10);
     $_SESSION['captcha_num2'] = rand(1, 10);
@@ -84,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (empty($errores)) {
-            $result = $controller->crear($datos);
+            $result = $controller->crear($datos, true); // true indica que es registro público
             
             if (isset($result['success'])) {
                 $success = '¡Registro exitoso! Su información ha sido enviada para validación.';
@@ -116,7 +125,7 @@ $terminos = $terminosConfig ? $terminosConfig['valor'] : 'No se han configurado 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, <?php echo $color_primario; ?> 0%, <?php echo $color_secundario; ?> 100%);
             min-height: 100vh;
             padding: 30px 0;
         }
@@ -127,14 +136,14 @@ $terminos = $terminosConfig ? $terminosConfig['valor'] : 'No se han configurado 
             padding: 30px;
         }
         .header-gradient {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, <?php echo $color_primario; ?> 0%, <?php echo $color_secundario; ?> 100%);
             color: white;
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 30px;
         }
         .btn-gradient {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, <?php echo $color_primario; ?> 0%, <?php echo $color_secundario; ?> 100%);
             border: none;
             color: white;
         }

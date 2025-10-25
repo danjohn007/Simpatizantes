@@ -204,10 +204,10 @@ class Usuario {
     }
     
     /**
-     * Elimina un usuario (soft delete - desactivar)
+     * Elimina un usuario permanentemente (hard delete)
      */
     public function eliminar($id) {
-        $sql = "UPDATE usuarios SET activo = 0 WHERE id = ?";
+        $sql = "DELETE FROM usuarios WHERE id = ?";
         return $this->db->execute($sql, [$id]);
     }
     

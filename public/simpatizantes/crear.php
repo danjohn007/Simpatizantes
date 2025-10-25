@@ -106,8 +106,35 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         </div>
     <?php endif; ?>
     
+    <!-- OCR INE -->
+    <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h5 class="mb-2"><i class="bi bi-camera-fill me-2"></i>Lectura OCR de INE</h5>
+                    <p class="text-muted mb-0 small">
+                        Sube una foto clara del INE frontal para extraer automáticamente los datos
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <input type="file" class="form-control" id="ine_ocr" accept="image/*" style="display: none;">
+                    <button type="button" class="btn btn-info w-100" onclick="document.getElementById('ine_ocr').click()">
+                        <i class="bi bi-upload me-2"></i>Subir INE para OCR
+                    </button>
+                </div>
+            </div>
+            <div id="ocr-loading" class="mt-3 text-center" style="display: none;">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Procesando...</span>
+                </div>
+                <p class="mt-2 text-muted">Procesando imagen con OCR...</p>
+            </div>
+            <div id="ocr-result" class="mt-3" style="display: none;"></div>
+        </div>
+    </div>
+    
     <!-- Formulario -->
-    <form method="POST" action="" enctype="multipart/form-data">
+    <form method="POST" action="" enctype="multipart/form-data" id="formSimpatizante">
         <div class="row">
             <!-- Información Personal -->
             <div class="col-lg-6">
@@ -506,6 +533,75 @@ const signaturePad = {
         return !pixelBuffer.some(color => color !== 0);
     }
 };
+
+// OCR de INE
+document.getElementById('ine_ocr').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Mostrar loading
+    document.getElementById('ocr-loading').style.display = 'block';
+    document.getElementById('ocr-result').style.display = 'none';
+    
+    // Crear FormData
+    const formData = new FormData();
+    formData.append('ine_imagen', file);
+    
+    // Enviar a API
+    fetch('<?php echo BASE_URL; ?>/public/api/procesar-ocr.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('ocr-loading').style.display = 'none';
+        
+        if (data.error) {
+            document.getElementById('ocr-result').innerHTML = 
+                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>' + 
+                data.error + '</div>';
+            document.getElementById('ocr-result').style.display = 'block';
+            return;
+        }
+        
+        // Llenar formulario con datos extraídos
+        if (data.datos) {
+            if (data.datos.nombre_completo) {
+                document.querySelector('[name="nombre_completo"]').value = data.datos.nombre_completo;
+            }
+            if (data.datos.curp) {
+                document.querySelector('[name="curp"]').value = data.datos.curp;
+            }
+            if (data.datos.clave_elector) {
+                document.querySelector('[name="clave_elector"]').value = data.datos.clave_elector;
+            }
+            if (data.datos.domicilio_completo) {
+                document.querySelector('[name="domicilio_completo"]').value = data.datos.domicilio_completo;
+            }
+            if (data.datos.seccion_electoral) {
+                document.querySelector('[name="seccion_electoral"]').value = data.datos.seccion_electoral;
+            }
+            if (data.datos.vigencia) {
+                document.querySelector('[name="vigencia"]').value = data.datos.vigencia;
+            }
+            if (data.datos.sexo) {
+                document.querySelector('[name="sexo"]').value = data.datos.sexo;
+            }
+            
+            document.getElementById('ocr-result').innerHTML = 
+                '<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i>' +
+                'Datos extraídos correctamente. Revise y complete la información faltante.</div>';
+            document.getElementById('ocr-result').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        document.getElementById('ocr-loading').style.display = 'none';
+        document.getElementById('ocr-result').innerHTML = 
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>' +
+            'Error al procesar la imagen: ' + error.message + '</div>';
+        document.getElementById('ocr-result').style.display = 'block';
+    });
+});
 </script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

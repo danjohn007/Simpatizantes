@@ -115,6 +115,13 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
+                
+                <div class="col-md-1">
+                    <label class="form-label small">&nbsp;</label>
+                    <a href="<?php echo BASE_URL; ?>/public/simpatizantes/index.php" class="btn btn-secondary w-100" title="Limpiar filtros">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                </div>
             </form>
         </div>
     </div>

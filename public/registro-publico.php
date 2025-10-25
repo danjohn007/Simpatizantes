@@ -23,8 +23,7 @@ $error = '';
 $success = '';
 $errores = [];
 
-// Generar números para captcha
-session_start();
+// Generar números para captcha (la sesión ya está iniciada en AuthController)
 if (!isset($_SESSION['captcha_num1']) || !isset($_SESSION['captcha_num2'])) {
     $_SESSION['captcha_num1'] = rand(1, 10);
     $_SESSION['captcha_num2'] = rand(1, 10);
@@ -84,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (empty($errores)) {
-            $result = $controller->crear($datos);
+            $result = $controller->crear($datos, true); // true indica que es registro público
             
             if (isset($result['success'])) {
                 $success = '¡Registro exitoso! Su información ha sido enviada para validación.';

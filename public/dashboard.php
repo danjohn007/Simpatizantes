@@ -32,6 +32,31 @@ $totalMes = $simpatizanteModel->contarTotal($filtros);
 // Estadísticas por sección
 $estatsPorSeccion = $simpatizanteModel->obtenerEstadisticasPorSeccion($filtros);
 
+// Estadísticas por día (últimos 30 días) para gráfica de actividad
+$db = Database::getInstance();
+$fechaInicio = date('Y-m-d', strtotime('-30 days'));
+$fechaFin = date('Y-m-d');
+
+$whereClauses = [];
+$params = [];
+
+if ($auth->obtenerRol() === 'capturista') {
+    $whereClauses[] = "capturista_id = ?";
+    $params[] = $auth->obtenerUsuarioId();
+}
+
+if (!empty($whereClauses)) {
+    $whereClause = 'WHERE ' . implode(' AND ', $whereClauses) . ' AND DATE(created_at) BETWEEN ? AND ?';
+} else {
+    $whereClause = 'WHERE DATE(created_at) BETWEEN ? AND ?';
+}
+
+$sql = "SELECT DATE(created_at) as fecha, COUNT(*) as total FROM simpatizantes $whereClause GROUP BY DATE(created_at) ORDER BY fecha ASC";
+$params[] = $fechaInicio;
+$params[] = $fechaFin;
+
+$estatsPorDia = $db->query($sql, $params);
+
 $pageTitle = 'Dashboard';
 include __DIR__ . '/../app/views/layouts/header.php';
 ?>
@@ -155,6 +180,22 @@ include __DIR__ . '/../app/views/layouts/header.php';
         </div>
     </div>
     
+    <!-- Gráfica de Actividad de Registros -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up me-2"></i>Actividad de Registros (Últimos 30 días)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartActividad" height="60"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Acciones rápidas -->
     <div class="row">
         <div class="col-12">
@@ -232,6 +273,88 @@ new Chart(ctxSecciones, {
                 beginAtZero: true,
                 ticks: {
                     stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+// Gráfica de Actividad de Registros
+const ctxActividad = document.getElementById('chartActividad').getContext('2d');
+const dataActividad = <?php echo json_encode($estatsPorDia); ?>;
+
+// Crear array completo de fechas (últimos 30 días)
+const fechas = [];
+const registros = {};
+
+// Inicializar registros con los datos existentes
+dataActividad.forEach(item => {
+    registros[item.fecha] = parseInt(item.total);
+});
+
+// Generar array de 30 días
+for (let i = 29; i >= 0; i--) {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() - i);
+    const fechaStr = fecha.toISOString().split('T')[0];
+    fechas.push(fechaStr);
+}
+
+// Preparar datos para la gráfica
+const valoresActividad = fechas.map(fecha => registros[fecha] || 0);
+const etiquetasFechas = fechas.map(fecha => {
+    const d = new Date(fecha + 'T00:00:00');
+    return d.getDate() + '/' + (d.getMonth() + 1);
+});
+
+new Chart(ctxActividad, {
+    type: 'line',
+    data: {
+        labels: etiquetasFechas,
+        datasets: [{
+            label: 'Registros por Día',
+            data: valoresActividad,
+            backgroundColor: 'rgba(40, 167, 69, 0.2)',
+            borderColor: 'rgba(40, 167, 69, 1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            tooltip: {
+                callbacks: {
+                    title: function(context) {
+                        const idx = context[0].dataIndex;
+                        const fecha = fechas[idx];
+                        const d = new Date(fecha + 'T00:00:00');
+                        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                        return dias[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
+                    },
+                    label: function(context) {
+                        return 'Registros: ' + context.parsed.y;
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            },
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 45
                 }
             }
         }

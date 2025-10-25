@@ -297,4 +297,47 @@ class SimpatizanteController {
         
         return ['error' => 'Error al subir el archivo'];
     }
+    
+    /**
+     * Procesa firma digital en formato base64
+     */
+    public function procesarFirmaBase64($base64Data) {
+        if (empty($base64Data)) {
+            return ['error' => 'No se recibió firma digital'];
+        }
+        
+        // Extraer datos de la imagen base64
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $type)) {
+            $base64Data = substr($base64Data, strpos($base64Data, ',') + 1);
+            $type = strtolower($type[1]);
+            
+            if (!in_array($type, ['jpg', 'jpeg', 'png'])) {
+                return ['error' => 'Formato de imagen no válido'];
+            }
+            
+            $base64Data = base64_decode($base64Data);
+            
+            if ($base64Data === false) {
+                return ['error' => 'Error al decodificar imagen'];
+            }
+        } else {
+            return ['error' => 'Formato de datos inválido'];
+        }
+        
+        // Crear directorio si no existe
+        $uploadDir = UPLOAD_PATH . '/firmas';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        // Generar nombre único
+        $nombreArchivo = uniqid() . '_' . time() . '.png';
+        $rutaDestino = $uploadDir . '/' . $nombreArchivo;
+        
+        if (file_put_contents($rutaDestino, $base64Data)) {
+            return ['success' => true, 'archivo' => 'uploads/firmas/' . $nombreArchivo];
+        }
+        
+        return ['error' => 'Error al guardar la firma'];
+    }
 }

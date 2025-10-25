@@ -61,8 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    if (isset($_FILES['firma_digital']) && $_FILES['firma_digital']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['firma_digital'], 'firmas');
+    // Procesar firma digital desde canvas (base64)
+    if (!empty($_POST['firma_digital'])) {
+        $result = $controller->procesarFirmaBase64($_POST['firma_digital']);
         if (isset($result['success'])) {
             $datos['firma_digital'] = $result['archivo'];
         }
@@ -323,7 +324,16 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         
                         <div class="mb-3">
                             <label class="form-label">Firma Digital</label>
-                            <input type="file" class="form-control" name="firma_digital" accept="image/*">
+                            <div class="border rounded p-2 bg-white">
+                                <canvas id="signatureCanvas" width="400" height="200" class="border" style="cursor: crosshair; touch-action: none;"></canvas>
+                            </div>
+                            <input type="hidden" name="firma_digital" id="firma_digital_data">
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="clearSignature()">
+                                    <i class="bi bi-eraser-fill me-1"></i>Limpiar Firma
+                                </button>
+                                <small class="text-muted ms-2">Firme con el mouse o dedo</small>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -398,8 +408,104 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Debe detectar la ubicación antes de guardar el registro');
             return false;
         }
+        
+        // Guardar firma digital como base64
+        if (signaturePad && !signaturePad.isEmpty()) {
+            document.getElementById('firma_digital_data').value = canvas.toDataURL('image/png');
+        }
     });
 });
+
+// Canvas de Firma Digital
+const canvas = document.getElementById('signatureCanvas');
+const ctx = canvas.getContext('2d');
+let isDrawing = false;
+let lastX = 0;
+let lastY = 0;
+
+// Configurar canvas
+ctx.strokeStyle = '#000';
+ctx.lineWidth = 2;
+ctx.lineCap = 'round';
+ctx.lineJoin = 'round';
+
+// Funciones de dibujo para mouse
+canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    lastX = e.clientX - rect.left;
+    lastY = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    lastX = x;
+    lastY = y;
+});
+
+canvas.addEventListener('mouseup', () => {
+    isDrawing = false;
+});
+
+canvas.addEventListener('mouseout', () => {
+    isDrawing = false;
+});
+
+// Funciones de dibujo para touch (móvil)
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    lastX = touch.clientX - rect.left;
+    lastY = touch.clientY - rect.top;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    lastX = x;
+    lastY = y;
+});
+
+canvas.addEventListener('touchend', () => {
+    isDrawing = false;
+});
+
+// Función para limpiar firma
+function clearSignature() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('firma_digital_data').value = '';
+}
+
+// Objeto signaturePad simple para compatibilidad
+const signaturePad = {
+    isEmpty: function() {
+        const pixelBuffer = new Uint32Array(
+            ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+        );
+        return !pixelBuffer.some(color => color !== 0);
+    }
+};
 </script>
 
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

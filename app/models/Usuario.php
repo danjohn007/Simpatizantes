@@ -103,7 +103,8 @@ class Usuario {
             return '';
         }
         
-        // Escape special LIKE characters
+        // Escape special LIKE characters for MySQL
+        // MySQL uses backslash as escape character by default
         $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $buscar);
         $searchTerm = "%{$searchTerm}%";
         

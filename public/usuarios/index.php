@@ -21,6 +21,10 @@ if (!empty($_GET['rol'])) {
     $filtros['rol'] = $_GET['rol'];
 }
 
+if (!empty($_GET['buscar'])) {
+    $filtros['buscar'] = $_GET['buscar'];
+}
+
 // Obtener datos
 $resultado = $controller->listar($filtros, $page);
 
@@ -46,9 +50,18 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" action="" class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label small">Buscar por nombre, email o teléfono</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" name="buscar" 
+                               placeholder="Escriba para buscar..." 
+                               value="<?php echo htmlspecialchars($_GET['buscar'] ?? ''); ?>">
+                    </div>
+                </div>
                 <div class="col-md-3">
                     <label class="form-label small">Filtrar por Rol</label>
-                    <select class="form-select" name="rol" onchange="this.form.submit()">
+                    <select class="form-select" name="rol">
                         <option value="">Todos los roles</option>
                         <option value="super_admin" <?php echo (isset($_GET['rol']) && $_GET['rol'] === 'super_admin') ? 'selected' : ''; ?>>
                             Super Admin
@@ -66,6 +79,17 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             Capturista
                         </option>
                     </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">&nbsp;</label>
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter me-2"></i>Aplicar Filtros
+                        </button>
+                        <a href="index.php" class="btn btn-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Limpiar
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>

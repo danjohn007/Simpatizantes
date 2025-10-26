@@ -95,33 +95,62 @@ class Usuario {
     /**
      * Obtiene todos los usuarios con paginación
      */
-    public function obtenerTodos($page = 1, $perPage = RECORDS_PER_PAGE, $rol = null) {
+    public function obtenerTodos($page = 1, $perPage = RECORDS_PER_PAGE, $rol = null, $buscar = null) {
         $offset = ($page - 1) * $perPage;
+        $params = [];
+        $conditions = [];
         
         if ($rol) {
-            $sql = "SELECT id, username, email, nombre_completo, rol, activo, created_at 
-                    FROM usuarios WHERE rol = ? 
-                    ORDER BY created_at DESC LIMIT ? OFFSET ?";
-            return $this->db->query($sql, [$rol, $perPage, $offset]);
-        } else {
-            $sql = "SELECT id, username, email, nombre_completo, rol, activo, created_at 
-                    FROM usuarios 
-                    ORDER BY created_at DESC LIMIT ? OFFSET ?";
-            return $this->db->query($sql, [$perPage, $offset]);
+            $conditions[] = "rol = ?";
+            $params[] = $rol;
         }
+        
+        if ($buscar) {
+            $conditions[] = "(nombre_completo LIKE ? OR email LIKE ? OR whatsapp LIKE ?)";
+            $searchTerm = "%{$buscar}%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+        
+        $whereClause = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
+        
+        $sql = "SELECT id, username, email, nombre_completo, rol, activo, created_at 
+                FROM usuarios 
+                {$whereClause}
+                ORDER BY created_at DESC LIMIT ? OFFSET ?";
+        
+        $params[] = $perPage;
+        $params[] = $offset;
+        
+        return $this->db->query($sql, $params);
     }
     
     /**
      * Cuenta total de usuarios
      */
-    public function contarTotal($rol = null) {
+    public function contarTotal($rol = null, $buscar = null) {
+        $params = [];
+        $conditions = [];
+        
         if ($rol) {
-            $sql = "SELECT COUNT(*) as total FROM usuarios WHERE rol = ?";
-            $result = $this->db->queryOne($sql, [$rol]);
-        } else {
-            $sql = "SELECT COUNT(*) as total FROM usuarios";
-            $result = $this->db->queryOne($sql);
+            $conditions[] = "rol = ?";
+            $params[] = $rol;
         }
+        
+        if ($buscar) {
+            $conditions[] = "(nombre_completo LIKE ? OR email LIKE ? OR whatsapp LIKE ?)";
+            $searchTerm = "%{$buscar}%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+        
+        $whereClause = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
+        
+        $sql = "SELECT COUNT(*) as total FROM usuarios {$whereClause}";
+        $result = $this->db->queryOne($sql, $params);
+        
         return $result['total'] ?? 0;
     }
     
@@ -172,25 +201,60 @@ class Usuario {
      * Actualiza un usuario
      */
     public function actualizar($id, $datos) {
-        $sql = "UPDATE usuarios SET 
-                email = ?, nombre_completo = ?, rol = ?, campana_id = ?, whatsapp = ?, 
-                twitter = ?, instagram = ?, facebook = ?, youtube = ?, tiktok = ?, activo = ?
-                WHERE id = ?";
+        // Build SQL query dynamically to handle optional password and username updates
+        $fields = [];
+        $params = [];
         
-        $params = [
-            $datos['email'],
-            $datos['nombre_completo'],
-            $datos['rol'],
-            $datos['campana_id'] ?? null,
-            $datos['whatsapp'] ?? null,
-            $datos['twitter'] ?? null,
-            $datos['instagram'] ?? null,
-            $datos['facebook'] ?? null,
-            $datos['youtube'] ?? null,
-            $datos['tiktok'] ?? null,
-            $datos['activo'] ?? 1,
-            $id
-        ];
+        // Username is updatable
+        if (isset($datos['username'])) {
+            $fields[] = "username = ?";
+            $params[] = $datos['username'];
+        }
+        
+        // Always update these fields
+        $fields[] = "email = ?";
+        $params[] = $datos['email'];
+        
+        $fields[] = "nombre_completo = ?";
+        $params[] = $datos['nombre_completo'];
+        
+        $fields[] = "rol = ?";
+        $params[] = $datos['rol'];
+        
+        $fields[] = "campana_id = ?";
+        $params[] = $datos['campana_id'] ?? null;
+        
+        $fields[] = "whatsapp = ?";
+        $params[] = $datos['whatsapp'] ?? null;
+        
+        $fields[] = "twitter = ?";
+        $params[] = $datos['twitter'] ?? null;
+        
+        $fields[] = "instagram = ?";
+        $params[] = $datos['instagram'] ?? null;
+        
+        $fields[] = "facebook = ?";
+        $params[] = $datos['facebook'] ?? null;
+        
+        $fields[] = "youtube = ?";
+        $params[] = $datos['youtube'] ?? null;
+        
+        $fields[] = "tiktok = ?";
+        $params[] = $datos['tiktok'] ?? null;
+        
+        $fields[] = "activo = ?";
+        $params[] = $datos['activo'] ?? 1;
+        
+        // Handle password update if provided
+        if (!empty($datos['password'])) {
+            $fields[] = "password = ?";
+            $params[] = password_hash($datos['password'], PASSWORD_DEFAULT);
+        }
+        
+        // Add the ID for WHERE clause
+        $params[] = $id;
+        
+        $sql = "UPDATE usuarios SET " . implode(", ", $fields) . " WHERE id = ?";
         
         return $this->db->execute($sql, $params);
     }

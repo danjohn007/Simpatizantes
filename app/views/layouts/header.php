@@ -94,9 +94,51 @@
             padding: 20px;
         }
         
+        /* Mobile sidebar overlay */
         @media (max-width: 768px) {
             .sidebar {
-                min-height: auto;
+                position: fixed;
+                top: 56px;
+                left: -100%;
+                width: 280px;
+                height: calc(100vh - 56px);
+                z-index: 1040;
+                transition: left 0.3s ease-in-out;
+                overflow-y: auto;
+            }
+            
+            .sidebar.show {
+                left: 0;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            }
+            
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 56px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1030;
+            }
+            
+            .sidebar-overlay.show {
+                display: block;
+            }
+            
+            .content-wrapper {
+                margin-left: 0 !important;
+            }
+            
+            .menu-toggle {
+                display: inline-block;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .menu-toggle {
+                display: none;
             }
         }
     </style>
@@ -105,6 +147,11 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
+            <!-- Menu toggle for mobile -->
+            <button class="btn btn-link text-white menu-toggle me-2" id="sidebarToggle" type="button">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            
             <a class="navbar-brand" href="<?php echo BASE_URL; ?>/public/dashboard.php">
                 <i class="bi bi-person-check-fill me-2"></i>
                 <?php echo APP_NAME; ?>
@@ -147,10 +194,13 @@
         </div>
     </nav>
     
+    <!-- Sidebar overlay (only visible on mobile when sidebar is open) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0 sidebar d-md-block d-none">
+            <div class="col-md-3 col-lg-2 px-0 sidebar d-md-block" id="sidebar">
                 <nav class="nav flex-column py-3">
                     <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], 'dashboard.php') !== false) ? 'active' : ''; ?>" 
                        href="<?php echo BASE_URL; ?>/public/dashboard.php">

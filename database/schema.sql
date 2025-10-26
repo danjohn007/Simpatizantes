@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS simpatizantes (
     facebook VARCHAR(100),
     youtube VARCHAR(100),
     tiktok VARCHAR(100),
+    observaciones TEXT,
     latitud DECIMAL(10, 8),
     longitud DECIMAL(11, 8),
     ine_frontal VARCHAR(255),

@@ -198,9 +198,10 @@ class Simpatizante {
         $sql = "UPDATE simpatizantes SET 
                 nombre_completo = ?, domicilio_completo = ?, sexo = ?, ciudad = ?,
                 clave_elector = ?, curp = ?, fecha_nacimiento = ?, ano_registro = ?,
-                vigencia = ?, seccion_electoral = ?, whatsapp = ?, email = ?,
+                vigencia = ?, seccion_electoral = ?, telefono = ?, whatsapp = ?, email = ?,
                 twitter = ?, instagram = ?, facebook = ?, youtube = ?, tiktok = ?,
-                latitud = ?, longitud = ?, validado = ?
+                latitud = ?, longitud = ?, campana_id = ?, metodo_captura = ?, 
+                observaciones = ?, validado = ?
                 WHERE id = ?";
         
         $params = [
@@ -214,6 +215,7 @@ class Simpatizante {
             $datos['ano_registro'] ?? null,
             $datos['vigencia'] ?? null,
             $datos['seccion_electoral'],
+            $datos['telefono'] ?? null,
             $datos['whatsapp'] ?? null,
             $datos['email'] ?? null,
             $datos['twitter'] ?? null,
@@ -223,6 +225,9 @@ class Simpatizante {
             $datos['tiktok'] ?? null,
             $datos['latitud'] ?? null,
             $datos['longitud'] ?? null,
+            $datos['campana_id'] ?? null,
+            $datos['metodo_captura'] ?? 'manual',
+            $datos['observaciones'] ?? null,
             $datos['validado'] ?? 0,
             $id
         ];

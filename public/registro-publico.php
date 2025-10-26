@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($datos['sexo'])) {
             $errores['sexo'] = 'El sexo es obligatorio';
         }
-        if (empty($datos['campana_id'])) {
+        if (empty($datos['campana_id']) || !is_numeric($datos['campana_id']) || $datos['campana_id'] <= 0) {
             $errores['campana_id'] = 'La campaña es obligatoria';
         }
         if (empty($datos['seccion_electoral'])) {

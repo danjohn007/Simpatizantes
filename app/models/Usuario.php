@@ -93,6 +93,28 @@ class Usuario {
     }
     
     /**
+     * Builds search conditions for user queries
+     * @param string|null $buscar Search term
+     * @param array &$params Reference to params array to append to
+     * @return string WHERE condition or empty string
+     */
+    private function buildSearchConditions($buscar, &$params) {
+        if (!$buscar) {
+            return '';
+        }
+        
+        // Escape special LIKE characters
+        $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $buscar);
+        $searchTerm = "%{$searchTerm}%";
+        
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        
+        return "(nombre_completo LIKE ? OR email LIKE ? OR whatsapp LIKE ?)";
+    }
+    
+    /**
      * Obtiene todos los usuarios con paginación
      */
     public function obtenerTodos($page = 1, $perPage = RECORDS_PER_PAGE, $rol = null, $buscar = null) {
@@ -105,12 +127,9 @@ class Usuario {
             $params[] = $rol;
         }
         
-        if ($buscar) {
-            $conditions[] = "(nombre_completo LIKE ? OR email LIKE ? OR whatsapp LIKE ?)";
-            $searchTerm = "%{$buscar}%";
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
+        $searchCondition = $this->buildSearchConditions($buscar, $params);
+        if ($searchCondition) {
+            $conditions[] = $searchCondition;
         }
         
         $whereClause = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
@@ -138,12 +157,9 @@ class Usuario {
             $params[] = $rol;
         }
         
-        if ($buscar) {
-            $conditions[] = "(nombre_completo LIKE ? OR email LIKE ? OR whatsapp LIKE ?)";
-            $searchTerm = "%{$buscar}%";
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
-            $params[] = $searchTerm;
+        $searchCondition = $this->buildSearchConditions($buscar, $params);
+        if ($searchCondition) {
+            $conditions[] = $searchCondition;
         }
         
         $whereClause = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";

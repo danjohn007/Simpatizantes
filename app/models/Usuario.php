@@ -173,7 +173,7 @@ class Usuario {
      */
     public function actualizar($id, $datos) {
         $sql = "UPDATE usuarios SET 
-                email = ?, nombre_completo = ?, rol = ?, whatsapp = ?, 
+                email = ?, nombre_completo = ?, rol = ?, campana_id = ?, whatsapp = ?, 
                 twitter = ?, instagram = ?, facebook = ?, youtube = ?, tiktok = ?, activo = ?
                 WHERE id = ?";
         
@@ -181,6 +181,7 @@ class Usuario {
             $datos['email'],
             $datos['nombre_completo'],
             $datos['rol'],
+            $datos['campana_id'] ?? null,
             $datos['whatsapp'] ?? null,
             $datos['twitter'] ?? null,
             $datos['instagram'] ?? null,

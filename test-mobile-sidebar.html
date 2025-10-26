@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Sidebar Móvil</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .sidebar {
+            min-height: calc(100vh - 56px);
+            background: white;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        
+        .sidebar .nav-link {
+            color: #333;
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 5px 10px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: #f8f9fa;
+            color: #667eea;
+            transform: translateX(5px);
+        }
+        
+        /* Mobile sidebar overlay */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 56px;
+                left: -100%;
+                width: 280px;
+                height: calc(100vh - 56px);
+                z-index: 1040;
+                transition: left 0.3s ease-in-out;
+                overflow-y: auto;
+            }
+            
+            .sidebar.show {
+                left: 0;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            }
+            
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 56px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1030;
+            }
+            
+            .sidebar-overlay.show {
+                display: block;
+            }
+            
+            .menu-toggle {
+                display: inline-block;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .menu-toggle {
+                display: none;
+            }
+        }
+        
+        .test-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <!-- Menu toggle for mobile -->
+            <button class="btn btn-link text-white menu-toggle me-2" id="sidebarToggle" type="button">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-person-check-fill me-2"></i>
+                Test Sidebar Móvil
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+    </nav>
+    
+    <!-- Sidebar overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 px-0 sidebar d-md-block" id="sidebar">
+                <nav class="nav flex-column py-3">
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-people-fill"></i> Simpatizantes
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-megaphone-fill"></i> Campañas
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-map-fill"></i> Mapa de Calor
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-graph-up"></i> Reportes
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-person-badge-fill"></i> Usuarios
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-gear-fill"></i> Configuración
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Main Content -->
+            <main class="col-md-9 col-lg-10 ms-sm-auto p-4">
+                <div class="alert alert-info">
+                    <h4 class="alert-heading"><i class="bi bi-info-circle-fill"></i> Prueba del Sidebar Móvil</h4>
+                    <hr>
+                    <h5>Instrucciones de prueba:</h5>
+                    <ol>
+                        <li><strong>En dispositivos móviles o pantallas pequeñas (< 768px):</strong>
+                            <ul>
+                                <li>Verás un botón de menú (☰) en la esquina superior izquierda</li>
+                                <li>Al hacer clic, el sidebar se deslizará desde la izquierda</li>
+                                <li>Aparecerá un overlay oscuro detrás del sidebar</li>
+                                <li>Puedes cerrar el sidebar haciendo clic en el overlay o en cualquier link del menú</li>
+                            </ul>
+                        </li>
+                        <li><strong>En tablets y desktop (≥ 769px):</strong>
+                            <ul>
+                                <li>El sidebar estará siempre visible a la izquierda</li>
+                                <li>El botón de menú (☰) estará oculto</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    <hr>
+                    <h5>Cómo probar:</h5>
+                    <p>Usa las herramientas de desarrollador del navegador (F12):</p>
+                    <ul>
+                        <li>Chrome/Edge: Ctrl+Shift+M para activar modo responsive</li>
+                        <li>Firefox: Ctrl+Shift+M para vista de diseño adaptable</li>
+                        <li>Safari: Desarrollar > Entrar en modo de diseño adaptable</li>
+                    </ul>
+                    <p>Prueba diferentes tamaños de pantalla:</p>
+                    <ul>
+                        <li>iPhone SE (375px)</li>
+                        <li>iPhone 12 Pro (390px)</li>
+                        <li>iPad (768px)</li>
+                        <li>Desktop (1920px)</li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Contenido de Ejemplo</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Este es el contenido principal de la página. El sidebar debe comportarse correctamente en todas las resoluciones.</p>
+                        <p>En móviles, el contenido principal debe ocupar todo el ancho de la pantalla.</p>
+                        <p>En tablets y desktop, el contenido debe ajustarse al espacio disponible junto al sidebar.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div class="test-info">
+        <div class="alert alert-success mb-0">
+            <small id="screenSize"></small>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+    <script>
+        // Mobile sidebar toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebarToggle && sidebar && sidebarOverlay) {
+                // Toggle sidebar on button click
+                sidebarToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('show');
+                    sidebarOverlay.classList.toggle('show');
+                });
+                
+                // Close sidebar when clicking overlay
+                sidebarOverlay.addEventListener('click', function() {
+                    sidebar.classList.remove('show');
+                    sidebarOverlay.classList.remove('show');
+                });
+                
+                // Close sidebar when clicking a link (for mobile)
+                const sidebarLinks = sidebar.querySelectorAll('.nav-link');
+                sidebarLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 769) {
+                            sidebar.classList.remove('show');
+                            sidebarOverlay.classList.remove('show');
+                        }
+                    });
+                });
+            }
+            
+            // Display screen size
+            function updateScreenSize() {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                const screenSize = document.getElementById('screenSize');
+                if (screenSize) {
+                    screenSize.textContent = `Pantalla: ${width}x${height}px`;
+                }
+            }
+            
+            updateScreenSize();
+            window.addEventListener('resize', updateScreenSize);
+        });
+    </script>
+</body>
+</html>

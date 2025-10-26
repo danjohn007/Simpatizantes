@@ -27,8 +27,8 @@ class UsuarioController {
     public function listar($filtros = [], $page = 1) {
         $this->auth->requiereRol(['super_admin', 'admin']);
         
-        $usuarios = $this->model->obtenerTodos($page, RECORDS_PER_PAGE, $filtros['rol'] ?? null);
-        $total = $this->model->contarTotal($filtros['rol'] ?? null);
+        $usuarios = $this->model->obtenerTodos($page, RECORDS_PER_PAGE, $filtros['rol'] ?? null, $filtros['buscar'] ?? null);
+        $total = $this->model->contarTotal($filtros['rol'] ?? null, $filtros['buscar'] ?? null);
         $totalPaginas = ceil($total / RECORDS_PER_PAGE);
         
         return [

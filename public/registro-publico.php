@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../app/controllers/SimpatizanteController.php';
+require_once __DIR__ . '/../app/models/Campana.php';
 
 // Verificar si el registro público está habilitado
 $db = Database::getInstance();
@@ -28,6 +29,10 @@ foreach ($colores as $color) {
 }
 
 $controller = new SimpatizanteController();
+$campanaModel = new Campana();
+
+// Obtener campañas activas
+$campanas = $campanaModel->obtenerTodas(1);
 
 $error = '';
 $success = '';
@@ -64,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'seccion_electoral' => $_POST['seccion_electoral'] ?? '',
             'whatsapp' => $_POST['whatsapp'] ?? '',
             'email' => $_POST['email'] ?? '',
+            'campana_id' => !empty($_POST['campana_id']) ? (int)$_POST['campana_id'] : null,
             'latitud' => $_POST['latitud'] ?? '',
             'longitud' => $_POST['longitud'] ?? '',
             'metodo_captura' => 'web',
@@ -79,6 +85,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (empty($datos['sexo'])) {
             $errores['sexo'] = 'El sexo es obligatorio';
+        }
+        // Validate campaign_id - must be a positive integer
+        if (empty($datos['campana_id']) || !filter_var($datos['campana_id'], FILTER_VALIDATE_INT) || $datos['campana_id'] <= 0) {
+            $errores['campana_id'] = 'La campaña es obligatoria';
         }
         if (empty($datos['seccion_electoral'])) {
             $errores['seccion_electoral'] = 'La sección electoral es obligatoria';
@@ -207,6 +217,22 @@ $terminos = $terminosConfig ? $terminosConfig['valor'] : 'No se han configurado 
                                         <?php endif; ?>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Campaña <span class="text-danger">*</span></label>
+                                <select class="form-select <?php echo isset($errores['campana_id']) ? 'is-invalid' : ''; ?>" name="campana_id" required>
+                                    <option value="">Seleccionar campaña</option>
+                                    <?php foreach ($campanas as $campana): ?>
+                                        <option value="<?php echo $campana['id']; ?>" 
+                                                <?php echo (isset($_POST['campana_id']) && $_POST['campana_id'] == $campana['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($campana['nombre']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if (isset($errores['campana_id'])): ?>
+                                    <div class="invalid-feedback"><?php echo $errores['campana_id']; ?></div>
+                                <?php endif; ?>
                             </div>
                             
                             <div class="mb-3">

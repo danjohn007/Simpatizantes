@@ -5,9 +5,12 @@
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/Database.php';
+require_once __DIR__ . '/../app/services/EmailService.php';
+require_once __DIR__ . '/../app/services/EmailQueue.php';
 
 session_start();
 $db = Database::getInstance();
+$emailService = new EmailService();
 
 $error = '';
 $success = '';
@@ -26,6 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usuario = $db->queryOne($sql, [$email]);
         
         if ($usuario) {
+            // Log para debugging
+            error_log("Recuperación solicitada para usuario: " . $usuario['username'] . " (" . $usuario['email'] . ")");
+            
             // Generar token de recuperación
             $token = bin2hex(random_bytes(32));
             $expiracion = date('Y-m-d H:i:s', strtotime('+1 hour'));
@@ -34,21 +40,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = "INSERT INTO recuperacion_password (usuario_id, token, expiracion) VALUES (?, ?, ?)";
             $db->execute($sql, [$usuario['id'], $token, $expiracion]);
             
-            // En un sistema real, aquí se enviaría un email con el link de recuperación
-            // Por ahora, solo mostramos un mensaje de éxito
+            error_log("Token generado para recuperación: " . substr($token, 0, 10) . "... - Expira: " . $expiracion);
             
-            // Link de recuperación (para mostrar en consola en desarrollo)
-            $linkRecuperacion = BASE_URL . "/public/restablecer-password.php?token=" . $token;
-            
-            // TODO: Enviar email con el link de recuperación
-            // mail($email, "Recuperación de contraseña", "Link: " . $linkRecuperacion);
-            
-            $success = 'Se han enviado las instrucciones de recuperación a su email.';
+            // RESPUESTA INMEDIATA: Dar feedback al usuario sin esperar el email
+            $success = 'Se están enviando las instrucciones de recuperación a su email. Esto puede tomar unos momentos.';
             $step = 2;
+            
+            // Procesar envío de email en background
+            $emailEnviado = $emailService->sendPasswordRecoveryEmail(
+                $usuario['email'],
+                $usuario['nombre_completo'],
+                $token
+            );
+            
+            // Solo mostrar link de fallback si hay error y estamos en desarrollo
+            if (!$emailEnviado && defined('APP_DEBUG') && APP_DEBUG) {
+                $linkRecuperacion = BASE_URL . "/public/restablecer-password.php?token=" . $token;
+                $success .= '<br><small class="text-muted">Link directo (desarrollo): <a href="' . $linkRecuperacion . '" target="_blank">Restablecer contraseña</a></small>';
+            }
+            
+            if ($emailEnviado) {
+                error_log("Email de recuperación enviado/encolado para: " . $usuario['email']);
+            } else {
+                error_log("Email de recuperación encolado en background para: " . $usuario['email']);
+            }
         } else {
-            // Por seguridad, mostramos el mismo mensaje aunque el email no exista
-            $success = 'Si el email está registrado, recibirá las instrucciones de recuperación.';
-            $step = 2;
+            // Mensaje específico para email no encontrado
+            error_log("Intento de recuperación con email no registrado: " . $email);
+            $error = 'El email ingresado no está registrado en el sistema o la cuenta está inactiva.';
         }
     }
 }
@@ -121,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <?php if ($success): ?>
                             <div class="alert alert-success" role="alert">
-                                <i class="bi bi-check-circle-fill me-2"></i><?php echo htmlspecialchars($success); ?>
+                                <i class="bi bi-check-circle-fill me-2"></i><?php echo $success; ?>
                             </div>
                         <?php endif; ?>
                         

@@ -11,6 +11,9 @@ date_default_timezone_set('America/Mexico_City');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Modo debug (cambiar a false en producción)
+define('APP_DEBUG', true);
+
 // Configuración de Base de Datos
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'recaudab_simpatiza');
@@ -68,6 +71,15 @@ define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/jpg']);
 
 // Configuración de paginación
 define('RECORDS_PER_PAGE', 25);
+
+// Configuración de Email SMTP
+define('SMTP_HOST', 'recaudabot.digital');
+define('SMTP_PORT', 465);
+define('SMTP_SECURE', 'ssl'); // ssl para puerto 465, tls para puerto 587
+define('SMTP_USERNAME', 'resetpassword@recaudabot.digital');
+define('SMTP_PASSWORD', 'Danjohn007');
+define('SMTP_FROM_EMAIL', 'resetpassword@recaudabot.digital');
+define('SMTP_FROM_NAME', 'Sistema de Simpatizantes');
 
 // Activar compresión de salida
 if (extension_loaded('zlib')) {

@@ -1,0 +1,72 @@
+/*
+ * Páginas públicas (registro, recuperar y restablecer contraseña).
+ * Misma identidad que el login: azul marino, foto de fondo atenuada y acento dorado.
+ * Se usa junto con theme.css (botones, alertas y formularios).
+ */
+body.public-page {
+    min-height: 100vh;
+    background: #111111;
+    color: #1f1d1b;
+    position: relative;
+    isolation: isolate;
+}
+body.public-page::before {
+    content: ""; position: fixed; inset: 0; z-index: -2;
+    background: radial-gradient(900px 520px at 12% 0%, rgba(255,128,0,.55), transparent 60%),
+                radial-gradient(700px 480px at 100% 100%, rgba(255,128,0,.28), transparent 60%), #111111;
+}
+body.public-page::after { content: ""; position: fixed; inset: 0; z-index: -1; background: rgba(17,17,17,.25); }
+
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 28px 16px; }
+.auth-wrap.top { place-items: start center; }
+
+.auth-card {
+    width: 100%; max-width: 480px; background: #fff; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.35);
+    animation: authRise .7s cubic-bezier(.22,1,.36,1) both;
+}
+.auth-card.wide { max-width: 940px; }
+@keyframes authRise { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: 1; transform: none; } }
+
+.auth-head {
+    display: flex; align-items: center; gap: 16px; padding: 24px 32px;
+    background: #1b1b1b; color: #fff; border-bottom: 3px solid #ff8000;
+}
+.auth-head .badge-ic {
+    flex: none; width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center;
+    background: rgba(255,255,255,.12); font-size: 1.5rem; color: #fff;
+}
+.auth-head.ok .badge-ic { background: rgba(75,158,112,.25); }
+.auth-head.bad .badge-ic { background: rgba(190,80,70,.28); }
+.auth-head h1 { font-size: 1.25rem; font-weight: 700; margin: 0; color: #fff; letter-spacing: -.01em; }
+.auth-head p { margin: 2px 0 0; font-size: .85rem; color: rgba(255,255,255,.72); }
+
+.auth-body { padding: 30px 32px 32px; }
+.auth-body .lead-text { color: #6e655e; font-size: .93rem; margin-bottom: 20px; }
+.auth-foot { text-align: center; margin: 18px 0 0; color: rgba(255,255,255,.7); font-size: .82rem; }
+.auth-foot i { margin-right: 4px; }
+
+.auth-link { color: #b85400; text-decoration: none; font-weight: 600; font-size: .9rem; }
+.auth-link:hover { text-decoration: underline; color: #111111; }
+
+.input-ico { position: relative; }
+.input-ico > i.lead-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #6e655e; pointer-events: none; }
+.input-ico .form-control { padding-left: 42px; height: 48px; border-radius: 10px; }
+
+/* Medidor de contraseña */
+.password-strength { height: 5px; margin-top: 8px; border-radius: 3px; background: #efeae4; width: 0; transition: width .3s, background-color .3s; }
+.strength-weak { background-color: #b5483d !important; }
+.strength-medium { background-color: #c79b3a !important; }
+.strength-strong { background-color: #3f8a62 !important; }
+
+.section-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: #b85400; font-weight: 700; margin: 6px 0 14px; padding-bottom: 8px; border-bottom: 1px solid #e9e4de; }
+.terms-box { max-height: 180px; overflow-y: auto; padding: 14px 16px; border: 1px solid #e9e4de; border-radius: 10px; background: #fbf9f6; font-size: .86rem; color: #3a3633; }
+.loc-status { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; color: #6e655e; }
+.loc-status.ok { color: #2f6b4a; }
+.loc-status.bad { color: #8a2f25; }
+.hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+@media (max-width: 575px) {
+    .auth-head, .auth-body { padding-left: 20px; padding-right: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .auth-card { animation: none; } }

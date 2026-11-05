@@ -83,24 +83,14 @@ $pageTitle = 'Editar Usuario';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/public/usuarios/index.php">Usuarios</a></li>
-                    <li class="breadcrumb-item active">Editar</li>
-                </ol>
-            </nav>
-            <h2><i class="bi bi-pencil-fill me-2"></i>Editar Usuario</h2>
-            <p class="text-muted">Actualizar información del usuario</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Usuarios</div>
+            <h1>Editar Usuario</h1>
+            <div class="meta"><span>Actualizar información del usuario</span></div>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Cancelar
-            </a>
-        </div>
+        <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-soft"><i class="bi bi-arrow-left me-2"></i>Cancelar</a>
     </div>
     
     <?php if ($error): ?>
@@ -111,10 +101,11 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     
     <!-- Formulario -->
     <form method="POST" action="">
+<?php echo csrf_field(); ?>
         <div class="row">
             <div class="col-lg-6">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-4">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-person-fill me-2"></i>Información del Usuario</h5>
                     </div>
                     <div class="card-body">
@@ -187,8 +178,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
             </div>
             
             <div class="col-lg-6">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-4">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-key-fill me-2"></i>Cambiar Contraseña</h5>
                     </div>
                     <div class="card-body">
@@ -213,13 +204,13 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
                 </div>
                 
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-4">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-share-fill me-2"></i>Contacto y Redes Sociales</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-whatsapp text-success"></i> WhatsApp</label>
+                            <label class="form-label"><i class="bi bi-whatsapp text-muted"></i> WhatsApp</label>
                             <input type="tel" class="form-control <?php echo isset($errores['whatsapp']) ? 'is-invalid' : ''; ?>" 
                                    name="whatsapp" pattern="[0-9]{10}" maxlength="10"
                                    value="<?php echo htmlspecialchars($usuario['whatsapp'] ?? ''); ?>">
@@ -230,31 +221,31 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-twitter text-info"></i> Twitter/X</label>
+                            <label class="form-label"><i class="bi bi-twitter text-muted"></i> Twitter/X</label>
                             <input type="text" class="form-control" name="twitter"
                                    value="<?php echo htmlspecialchars($usuario['twitter'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-instagram text-danger"></i> Instagram</label>
+                            <label class="form-label"><i class="bi bi-instagram text-muted"></i> Instagram</label>
                             <input type="text" class="form-control" name="instagram"
                                    value="<?php echo htmlspecialchars($usuario['instagram'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-facebook text-primary"></i> Facebook</label>
+                            <label class="form-label"><i class="bi bi-facebook text-muted"></i> Facebook</label>
                             <input type="text" class="form-control" name="facebook"
                                    value="<?php echo htmlspecialchars($usuario['facebook'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-youtube text-danger"></i> YouTube</label>
+                            <label class="form-label"><i class="bi bi-youtube text-muted"></i> YouTube</label>
                             <input type="text" class="form-control" name="youtube"
                                    value="<?php echo htmlspecialchars($usuario['youtube'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-tiktok"></i> TikTok</label>
+                            <label class="form-label"><i class="bi bi-tiktok text-muted"></i> TikTok</label>
                             <input type="text" class="form-control" name="tiktok"
                                    value="<?php echo htmlspecialchars($usuario['tiktok'] ?? ''); ?>">
                         </div>
@@ -266,12 +257,12 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         <!-- Botones -->
         <div class="row">
             <div class="col-12">
-                <div class="card border-0 shadow-sm">
+                <div class="card">
                     <div class="card-body text-center">
-                        <button type="submit" class="btn btn-gradient btn-lg">
+                        <button type="submit" class="btn btn-primary btn-lg">
                             <i class="bi bi-save me-2"></i>Guardar Cambios
                         </button>
-                        <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-secondary btn-lg">
+                        <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-soft btn-lg">
                             <i class="bi bi-x-circle me-2"></i>Cancelar
                         </a>
                     </div>

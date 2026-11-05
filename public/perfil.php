@@ -72,13 +72,14 @@ $pageTitle = 'Mi Perfil';
 include __DIR__ . '/../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2><i class="bi bi-person-fill me-2"></i>Mi Perfil</h2>
-            <p class="text-muted">Administra tu información personal</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Mi cuenta</div>
+            <h1>Mi Perfil</h1>
+            <div class="meta"><span>Administra tu información personal</span></div>
         </div>
+        <a href="dashboard.php" class="btn btn-soft"><i class="bi bi-arrow-left me-2"></i>Volver al panel</a>
     </div>
     
     <?php if ($success): ?>
@@ -98,12 +99,13 @@ include __DIR__ . '/../app/views/layouts/header.php';
     <div class="row">
         <!-- Información del Perfil -->
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white">
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>Información Personal</h5>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="">
+<?php echo csrf_field(); ?>
                         <input type="hidden" name="action" value="actualizar_perfil">
                         
                         <div class="row mb-3">
@@ -140,38 +142,38 @@ include __DIR__ . '/../app/views/layouts/header.php';
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label"><i class="bi bi-twitter text-info"></i> Twitter/X</label>
+                                <label class="form-label"><i class="bi bi-twitter text-muted"></i> Twitter/X</label>
                                 <input type="text" class="form-control" name="twitter" 
                                        value="<?php echo htmlspecialchars($usuario['twitter'] ?? ''); ?>">
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label"><i class="bi bi-instagram text-danger"></i> Instagram</label>
+                                <label class="form-label"><i class="bi bi-instagram text-muted"></i> Instagram</label>
                                 <input type="text" class="form-control" name="instagram" 
                                        value="<?php echo htmlspecialchars($usuario['instagram'] ?? ''); ?>">
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label"><i class="bi bi-facebook text-primary"></i> Facebook</label>
+                                <label class="form-label"><i class="bi bi-facebook text-muted"></i> Facebook</label>
                                 <input type="text" class="form-control" name="facebook" 
                                        value="<?php echo htmlspecialchars($usuario['facebook'] ?? ''); ?>">
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label"><i class="bi bi-youtube text-danger"></i> YouTube</label>
+                                <label class="form-label"><i class="bi bi-youtube text-muted"></i> YouTube</label>
                                 <input type="text" class="form-control" name="youtube" 
                                        value="<?php echo htmlspecialchars($usuario['youtube'] ?? ''); ?>">
                             </div>
                             
                             <div class="col-md-6 mb-3">
-                                <label class="form-label"><i class="bi bi-tiktok"></i> TikTok</label>
+                                <label class="form-label"><i class="bi bi-tiktok text-muted"></i> TikTok</label>
                                 <input type="text" class="form-control" name="tiktok" 
                                        value="<?php echo htmlspecialchars($usuario['tiktok'] ?? ''); ?>">
                             </div>
                         </div>
                         
                         <div class="text-end">
-                            <button type="submit" class="btn btn-gradient">
+                            <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save-fill me-2"></i>Guardar Cambios
                             </button>
                         </div>
@@ -180,12 +182,13 @@ include __DIR__ . '/../app/views/layouts/header.php';
             </div>
             
             <!-- Cambiar Contraseña -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-lock-fill me-2"></i>Cambiar Contraseña</h5>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="">
+<?php echo csrf_field(); ?>
                         <input type="hidden" name="action" value="cambiar_password">
                         
                         <div class="mb-3">
@@ -206,7 +209,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                         </div>
                         
                         <div class="text-end">
-                            <button type="submit" class="btn btn-warning">
+                            <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-key-fill me-2"></i>Cambiar Contraseña
                             </button>
                         </div>
@@ -217,8 +220,8 @@ include __DIR__ . '/../app/views/layouts/header.php';
         
         <!-- Información Adicional -->
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white">
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-info-circle-fill me-2"></i>Información de Cuenta</h5>
                 </div>
                 <div class="card-body">
@@ -250,7 +253,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                 </div>
             </div>
             
-            <div class="card border-0 shadow-sm bg-light">
+            <div class="card bg-light">
                 <div class="card-body">
                     <h6><i class="bi bi-shield-check me-2"></i>Seguridad</h6>
                     <p class="small text-muted mb-0">

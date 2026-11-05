@@ -133,6 +133,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
                     
                     <form method="POST" action="" class="mt-4">
+<?php echo csrf_field(); ?>
                         <div class="d-grid gap-2 d-md-flex justify-content-md-center">
                             <button type="submit" name="confirmar_eliminar" class="btn btn-danger btn-lg" onclick="return confirm('¿Está completamente seguro de que desea eliminar este simpatizante? Esta acción es irreversible.');">
                                 <i class="bi bi-trash-fill me-2"></i>Confirmar Eliminación

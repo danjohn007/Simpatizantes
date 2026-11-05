@@ -61,19 +61,14 @@ $pageTitle = 'Eliminar Usuario';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/public/usuarios/index.php">Usuarios</a></li>
-                    <li class="breadcrumb-item active">Eliminar</li>
-                </ol>
-            </nav>
-            <h2><i class="bi bi-trash-fill text-danger me-2"></i>Eliminar Usuario</h2>
-            <p class="text-muted">Confirmación de eliminación</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Usuarios</div>
+            <h1>Eliminar Usuario</h1>
+            <div class="meta"><span>Confirmación de eliminación</span></div>
         </div>
+        <a href="index.php" class="btn btn-soft"><i class="bi bi-arrow-left me-2"></i>Volver</a>
     </div>
     
     <?php if ($error): ?>
@@ -85,8 +80,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <!-- Confirmación -->
     <div class="row justify-content-center">
         <div class="col-lg-6">
-            <div class="card border-danger shadow-sm">
-                <div class="card-header bg-danger text-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Advertencia</h5>
                 </div>
                 <div class="card-body">
@@ -111,12 +106,13 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
                     
                     <form method="POST" action="">
+<?php echo csrf_field(); ?>
                         <input type="hidden" name="confirmar" value="si">
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-danger btn-lg">
                                 <i class="bi bi-trash-fill me-2"></i>Sí, Eliminar Usuario
                             </button>
-                            <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-secondary btn-lg">
+                            <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-soft btn-lg">
                                 <i class="bi bi-x-circle me-2"></i>No, Cancelar
                             </a>
                         </div>

@@ -3,11 +3,23 @@
     </div>
     
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="<?php echo BASE_URL; ?>/public/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     
     <!-- jQuery (opcional, para algunas funcionalidades) -->
-    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="<?php echo BASE_URL; ?>/public/vendor/jquery/jquery-3.7.0.min.js"></script>
     
+    <!-- Altura de la barra superior (menú lateral fijo) -->
+    <script>
+        (function () {
+            var nav = document.querySelector('.navbar');
+            function medir() { if (nav) document.documentElement.style.setProperty('--nav-h', nav.offsetHeight + 'px'); }
+            medir();
+            window.addEventListener('resize', medir);
+            var c = document.getElementById('navbarNav');
+            if (c) { c.addEventListener('shown.bs.collapse', medir); c.addEventListener('hidden.bs.collapse', medir); }
+        })();
+    </script>
+
     <!-- Script personalizado -->
     <script>
         // Confirmación para eliminar

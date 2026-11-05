@@ -58,22 +58,14 @@ $pageTitle = $usuario['activo'] ? 'Suspender Usuario' : 'Activar Usuario';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/public/usuarios/index.php">Usuarios</a></li>
-                    <li class="breadcrumb-item active"><?php echo $usuario['activo'] ? 'Suspender' : 'Activar'; ?></li>
-                </ol>
-            </nav>
-            <h2>
-                <i class="bi bi-<?php echo $usuario['activo'] ? 'pause-circle' : 'play-circle'; ?>-fill me-2"></i>
-                <?php echo $usuario['activo'] ? 'Suspender' : 'Activar'; ?> Usuario
-            </h2>
-            <p class="text-muted">Confirmación de cambio de estado</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Usuarios</div>
+            <h1><?php echo $usuario['activo'] ? 'Suspender' : 'Activar'; ?> Usuario</h1>
+            <div class="meta"><span>Confirmación de cambio de estado</span></div>
         </div>
+        <a href="index.php" class="btn btn-soft"><i class="bi bi-arrow-left me-2"></i>Volver</a>
     </div>
     
     <!-- Confirmación -->
@@ -122,12 +114,13 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                     </div>
                     
                     <form method="POST" action="">
+<?php echo csrf_field(); ?>
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-<?php echo $usuario['activo'] ? 'warning' : 'success'; ?> btn-lg">
                                 <i class="bi bi-<?php echo $usuario['activo'] ? 'pause' : 'play'; ?>-circle-fill me-2"></i>
                                 Sí, <?php echo $usuario['activo'] ? 'Suspender' : 'Activar'; ?> Usuario
                             </button>
-                            <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-secondary btn-lg">
+                            <a href="<?php echo BASE_URL; ?>/public/usuarios/index.php" class="btn btn-soft btn-lg">
                                 <i class="bi bi-x-circle me-2"></i>No, Cancelar
                             </a>
                         </div>

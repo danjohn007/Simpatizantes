@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/Database.php';
 require_once __DIR__ . '/../models/Usuario.php';
 require_once __DIR__ . '/../models/LogAuditoria.php';
+require_once __DIR__ . '/../helpers/security.php';
 
 class AuthController {
     private $usuarioModel;
@@ -23,10 +24,8 @@ class AuthController {
      * Inicia la sesión si no está iniciada
      */
     private function iniciarSesion() {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_name(SESSION_NAME);
-            session_start();
-        }
+        seguridad_iniciar_sesion();
+        csrf_proteger();
     }
     
     /**
@@ -46,13 +45,14 @@ class AuthController {
             if (is_array($result) && isset($result['error'])) {
                 return $result;
             } elseif ($result) {
-                // Login exitoso
+                // Login exitoso: nuevo ID de sesión para evitar fijación de sesión
+                session_regenerate_id(true);
                 $_SESSION['usuario_id'] = $result['id'];
                 $_SESSION['username'] = $result['username'];
                 $_SESSION['nombre_completo'] = $result['nombre_completo'];
                 $_SESSION['rol'] = $result['rol'];
                 $_SESSION['email'] = $result['email'];
-                $_SESSION['campana_id'] = $result['campana_id'];
+                $_SESSION['campana_id'] = $result['campana_id'] ?? null;
                 $_SESSION['last_activity'] = time();
                 
                 // Registrar en log

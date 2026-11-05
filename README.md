@@ -179,15 +179,13 @@ Este test verificará:
 
 ## 🔑 Credenciales de Acceso
 
-El sistema incluye usuarios de prueba con contraseña: `admin123`
+> **Seguridad:** el script `database/schema.sql` crea cuentas de ejemplo (`superadmin`, `admin1`, `candidato1`,
+> `coordinador1`, `capturista1`, `capturista2`) cuya contraseña es **`password`** (no `admin123`, como decía antes
+> esta guía). Es una contraseña pública y conocida: **cambie o elimine esas cuentas antes de usar el sistema con datos reales.**
 
-| Usuario | Rol | Email |
-|---------|-----|-------|
-| `superadmin` | Super Admin | superadmin@sistema.com |
-| `admin1` | Administrador | admin1@sistema.com |
-| `candidato1` | Candidato | candidato1@sistema.com |
-| `coordinador1` | Coordinador | coordinador1@sistema.com |
-| `capturista1` | Capturista | capturista1@sistema.com |
+Para probar cada nivel sin usar esas cuentas, entre como super administrador a **Configuración > Datos de ejemplo >
+Crear accesos por nivel**: se generan usuarios de demostración con contraseña aleatoria que se muestra una sola vez
+y se borran junto con los datos de ejemplo.
 
 ## 📱 Uso del Sistema
 
@@ -353,3 +351,24 @@ Para soporte técnico:
 **Versión:** 1.0.0  
 **Última actualización:** 2024  
 **Estado:** En desarrollo activo
+
+## Calidad de datos (Sprint 2)
+
+Para activar estas funciones en el servidor, ejecute **una vez** `database/sprint2_calidad_datos.sql`
+(phpMyAdmin > su base > SQL). Es repetible y no borra datos.
+
+- **Validación al capturar:** CURP y clave de elector (formato, fecha, dígito verificador), teléfono a 10 dígitos, sección a 4 dígitos.
+- **Duplicados:** clave de elector, CURP, WhatsApp y correo repetidos se bloquean; mismo teléfono o mismo nombre en la misma sección solo avisan. La revisión se muestra en vivo en el formulario.
+- **Estado de validación:** pendiente / validado / rechazado, con motivo e historial (solo admin, super admin y coordinador).
+- **Importar:** `Simpatizantes > Importar` (Excel o CSV, hasta 5,000 filas), con revisión previa y reporte de filas omitidas.
+- **Exportar:** Excel o CSV con los filtros del listado; respeta el alcance de cada rol y queda en la auditoría.
+
+## Operación en campo (Sprint 3)
+
+Ejecute **una vez** `database/sprint3_campo.sql` (después del de Sprint 2). Es repetible y no borra datos.
+
+- **Captura en campo** (`/public/captura.php`): formulario corto para el celular, con ubicación automática y guardado sin conexión.
+  Los registros se guardan en el teléfono y se envían solos al volver la señal (sin duplicarse). Se puede instalar como app
+  ("Agregar a pantalla de inicio"). Requiere HTTPS.
+- **Metas y zonas** (`/public/campo/`): metas por campaña, capturista o sección con avance en vivo, y secciones asignadas a cada capturista.
+  Si un capturista registra fuera de sus secciones, el sistema le avisa (no bloquea).

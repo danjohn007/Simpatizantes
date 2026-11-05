@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS simpatizantes (
     ano_registro INT,
     vigencia INT,
     seccion_electoral VARCHAR(10) NOT NULL,
+    telefono VARCHAR(20),
     whatsapp VARCHAR(20),
     email VARCHAR(100),
     twitter VARCHAR(100),
@@ -75,18 +76,64 @@ CREATE TABLE IF NOT EXISTS simpatizantes (
     capturista_id INT,
     metodo_captura ENUM('manual', 'escaneo') DEFAULT 'manual',
     validado TINYINT(1) DEFAULT 0,
+    estatus_validacion ENUM('pendiente', 'validado', 'rechazado') NOT NULL DEFAULT 'pendiente',
+    motivo_rechazo VARCHAR(255) NULL,
     duplicado TINYINT(1) DEFAULT 0,
+    uuid_cliente CHAR(36) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (campana_id) REFERENCES campanas(id) ON DELETE SET NULL,
     FOREIGN KEY (capturista_id) REFERENCES usuarios(id) ON DELETE SET NULL,
     INDEX idx_clave_elector (clave_elector),
     INDEX idx_curp (curp),
+    INDEX idx_whatsapp (whatsapp),
+    INDEX idx_email (email),
+    INDEX idx_telefono (telefono),
+    INDEX idx_estatus (estatus_validacion),
+    INDEX idx_seccion_nombre (seccion_electoral, nombre_completo(60)),
+    UNIQUE INDEX uq_uuid_cliente (uuid_cliente),
     INDEX idx_seccion (seccion_electoral),
     INDEX idx_campana (campana_id),
     INDEX idx_capturista (capturista_id),
     INDEX idx_ubicacion (latitud, longitud),
     INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS simpatizantes_validaciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    simpatizante_id INT NOT NULL,
+    estatus_anterior ENUM('pendiente', 'validado', 'rechazado') NULL,
+    estatus_nuevo ENUM('pendiente', 'validado', 'rechazado') NOT NULL,
+    motivo VARCHAR(255) NULL,
+    usuario_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_simpatizante (simpatizante_id, created_at),
+    INDEX idx_usuario (usuario_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS metas_captura (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    campana_id INT NOT NULL,
+    usuario_id INT NULL,
+    seccion_electoral VARCHAR(10) NULL,
+    objetivo INT NOT NULL,
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL,
+    creada_por INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_campana (campana_id),
+    INDEX idx_usuario (usuario_id),
+    INDEX idx_fechas (fecha_inicio, fecha_fin)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS asignaciones_seccion (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    seccion_electoral VARCHAR(10) NOT NULL,
+    asignada_por INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_usuario_seccion (usuario_id, seccion_electoral),
+    INDEX idx_seccion (seccion_electoral)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tabla de Relaciones de Jerarquía (para coordinadores y capturistas)

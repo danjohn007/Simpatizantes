@@ -7,8 +7,10 @@
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/Database.php';
 require_once __DIR__ . '/../models/Simpatizante.php';
+require_once __DIR__ . '/../models/Campo.php';
 require_once __DIR__ . '/../models/LogAuditoria.php';
 require_once __DIR__ . '/AuthController.php';
+require_once __DIR__ . '/../helpers/validacion.php';
 
 class SimpatizanteController {
     private $model;
@@ -45,7 +47,8 @@ class SimpatizanteController {
             'simpatizantes' => $simpatizantes,
             'total' => $total,
             'pagina_actual' => $page,
-            'total_paginas' => $totalPaginas
+            'total_paginas' => $totalPaginas,
+            'por_estatus' => $this->model->contarPorEstatus($filtros)
         ];
     }
     
@@ -54,18 +57,133 @@ class SimpatizanteController {
      */
     public function obtener($id) {
         $this->auth->requiereAutenticacion();
-        
+
         $simpatizante = $this->model->obtenerPorId($id);
-        
-        // Verificar permisos
-        if ($this->auth->obtenerRol() === 'capturista' && 
-            $simpatizante['capturista_id'] != $this->auth->obtenerUsuarioId()) {
+
+        if ($simpatizante && !$this->puedeAcceder($simpatizante)) {
             return ['error' => 'No tiene permisos para ver este simpatizante'];
         }
-        
+
         return $simpatizante;
     }
-    
+
+    /**
+     * ¿Puede el usuario actual ver/modificar este registro?
+     * - Capturista: solo los que capturó.
+     * - Admin y super admin: todos.
+     * - Resto (coordinador, candidato): solo los de su campaña.
+     */
+    public function puedeAcceder($simpatizante) {
+        if ($this->auth->puedeVerTodasLasCampanas()) {
+            return true;
+        }
+        if ($this->auth->obtenerRol() === 'capturista') {
+            return (int)$simpatizante['capturista_id'] === (int)$this->auth->obtenerUsuarioId();
+        }
+        $campana = $this->auth->obtenerCampanaId();
+        return $campana && (int)$simpatizante['campana_id'] === (int)$campana;
+    }
+
+    /**
+     * Normaliza los datos capturados: espacios, mayúsculas en CURP/clave, teléfonos a 10 dígitos, sección a 4 dígitos.
+     */
+    public function normalizar($datos) {
+        return vd_normalizar_simpatizante($datos);
+    }
+
+    /**
+     * Aviso si un capturista registra fuera de las secciones que se le asignaron.
+     * Sin zonas asignadas (o para otros roles) no hay restricción ni aviso.
+     */
+    public function avisoZona($seccion) {
+        $seccion = vd_normalizar_seccion($seccion);
+        if ($this->auth->obtenerRol() !== 'capturista' || !preg_match('/^\d{4}$/', (string)$seccion)) {
+            return null;
+        }
+        $zonas = (new Campo())->seccionesDe($this->auth->obtenerUsuarioId());
+        if ($zonas && !in_array($seccion, $zonas, true)) {
+            $lista = count($zonas) > 6 ? implode(', ', array_slice($zonas, 0, 6)) . '…' : implode(', ', $zonas);
+            return 'La sección ' . $seccion . ' está fuera de sus zonas asignadas (' . $lista . '). Se guarda, pero avise a su coordinador si es correcto.';
+        }
+        return null;
+    }
+
+    /**
+     * Revisa duplicados y consistencia de un registro (para el aviso en pantalla mientras se captura).
+     * Quien no puede ver todo el padrón recibe el nombre enmascarado.
+     */
+    public function revisarCalidad($datos, $excludeId = null) {
+        $this->auth->requiereAutenticacion();
+        $datos = $this->normalizar($datos);
+
+        $avisos = [];
+        $fecha = vd_normalizar_fecha($datos['fecha_nacimiento'] ?? '');
+        $sexo = $datos['sexo'] ?? '';
+        $curp = vd_validar_curp($datos['curp'] ?? '', $fecha, $sexo);
+        $clave = vd_validar_clave_elector($datos['clave_elector'] ?? '', $fecha, $sexo);
+        $errores = [];
+        if ($curp['errores']) { $errores['curp'] = $curp['errores'][0]; }
+        if ($clave['errores']) { $errores['clave_elector'] = $clave['errores'][0]; }
+        foreach ($curp['avisos'] as $a) { $avisos[] = ['campo' => 'curp', 'texto' => $a]; }
+        foreach ($clave['avisos'] as $a) { $avisos[] = ['campo' => 'clave_elector', 'texto' => $a]; }
+        if (!vd_telefono_valido($datos['telefono'] ?? '')) { $errores['telefono'] = 'El teléfono debe tener 10 dígitos'; }
+        if (!vd_telefono_valido($datos['whatsapp'] ?? '')) { $errores['whatsapp'] = 'El WhatsApp debe tener 10 dígitos'; }
+
+        if ($zona = $this->avisoZona($datos['seccion_electoral'] ?? '')) {
+            $avisos[] = ['campo' => 'seccion_electoral', 'texto' => $zona];
+        }
+
+        $verTodo = $this->auth->puedeVerTodasLasCampanas();
+        $duplicados = [];
+        foreach ($this->model->buscarDuplicados($datos, $excludeId) as $d) {
+            $mio = $this->puedeAcceder($d);
+            $duplicados[] = [
+                'tipo' => $d['tipo'],
+                'campos' => $d['campos'],
+                'texto' => 'Ya existe un registro con ' . Simpatizante::describirCampos($d['campos']),
+                'id' => $mio ? (int)$d['id'] : null,
+                'nombre' => ($verTodo || $mio) ? $d['nombre_completo'] : vd_enmascarar_nombre($d['nombre_completo']),
+                'seccion' => $d['seccion_electoral'],
+                'fecha' => $d['created_at'] ? date('d/m/Y', strtotime($d['created_at'])) : null,
+            ];
+        }
+
+        return ['errores' => $errores, 'avisos' => $avisos, 'duplicados' => $duplicados];
+    }
+
+    /** Historial de cambios de estado de un simpatizante al que el usuario tiene acceso. */
+    public function historialValidacion($id) {
+        $this->auth->requiereAutenticacion();
+        $simp = $this->model->obtenerPorId($id);
+        return ($simp && $this->puedeAcceder($simp)) ? $this->model->historialValidacion($id) : [];
+    }
+
+    /**
+     * Cambia el estado de validación (pendiente / validado / rechazado). Solo admin, super admin y coordinador.
+     */
+    public function cambiarEstatus($id, $estatus, $motivo = '') {
+        $this->auth->requiereAutenticacion();
+        if (!$this->auth->tieneRol(['super_admin', 'admin', 'coordinador'])) {
+            return ['error' => 'No tiene permisos para cambiar el estado de validación'];
+        }
+        $simp = $this->model->obtenerPorId($id);
+        if (!$simp) {
+            return ['error' => 'Simpatizante no encontrado'];
+        }
+        if (!$this->puedeAcceder($simp)) {
+            return ['error' => 'No tiene permisos sobre este simpatizante'];
+        }
+
+        $res = $this->model->cambiarEstatus($id, $estatus, $motivo, $this->auth->obtenerUsuarioId());
+        if (!empty($res['success'])) {
+            $this->logModel->registrar(
+                $this->auth->obtenerUsuarioId(), 'validacion_simpatizante', 'simpatizantes', $id,
+                ['estatus' => $res['anterior']], ['estatus' => $estatus, 'motivo' => $motivo !== '' ? $motivo : null]
+            );
+        }
+        return $res;
+    }
+
     /**
      * Crea un nuevo simpatizante
      * @param array $datos Datos del simpatizante
@@ -76,6 +194,8 @@ class SimpatizanteController {
         if (!$esRegistroPublico) {
             $this->auth->requiereAutenticacion();
         }
+        
+        $datos = $this->normalizar($datos);
         
         // Validaciones
         $errores = $this->validar($datos, null, $esRegistroPublico);
@@ -121,17 +241,18 @@ class SimpatizanteController {
         }
         
         // Verificar permisos
-        if ($this->auth->obtenerRol() === 'capturista' && 
-            $datosAnteriores['capturista_id'] != $this->auth->obtenerUsuarioId()) {
+        if (!$this->puedeAcceder($datosAnteriores)) {
             return ['error' => 'No tiene permisos para editar este simpatizante'];
         }
-        
+
+        $datos = $this->normalizar($datos);
+
         // Validaciones
         $errores = $this->validar($datos, $id);
         if (!empty($errores)) {
             return ['error' => 'Errores de validación', 'errores' => $errores];
         }
-        
+
         $result = $this->model->actualizar($id, $datos);
         
         if ($result) {
@@ -148,7 +269,7 @@ class SimpatizanteController {
             return ['success' => true];
         }
         
-        return ['error' => 'Error al actualizar simpatizante'];
+        return ['error' => Database::getInstance()->describirError('actualizar el simpatizante')];
     }
     
     /**
@@ -183,93 +304,93 @@ class SimpatizanteController {
     }
     
     /**
-     * Valida los datos de un simpatizante
+     * Valida los datos de un simpatizante (ya normalizados)
      */
     private function validar($datos, $excludeId = null, $esRegistroPublico = false) {
         $errores = [];
-        
+
         // Campos obligatorios
         if (empty($datos['nombre_completo'])) {
             $errores['nombre_completo'] = 'El nombre completo es obligatorio';
+        } elseif (mb_strlen($datos['nombre_completo']) < 5 || strpos($datos['nombre_completo'], ' ') === false) {
+            $errores['nombre_completo'] = 'Escriba el nombre completo (nombre y apellido)';
         }
-        
+
         if (empty($datos['domicilio_completo'])) {
             $errores['domicilio_completo'] = 'El domicilio completo es obligatorio';
         }
-        
+
         if (empty($datos['seccion_electoral'])) {
             $errores['seccion_electoral'] = 'La sección electoral es obligatoria';
+        } elseif (!preg_match('/^[0-9]{4}$/', $datos['seccion_electoral'])) {
+            $errores['seccion_electoral'] = 'La sección electoral debe tener exactamente 4 dígitos';
         }
-        
+
         // Solo validar campaña si NO es registro público
         if (!$esRegistroPublico && empty($datos['campana_id'])) {
             $errores['campana_id'] = 'Debe seleccionar una campaña';
         }
-        
-        // Validar formato CURP si se proporciona
-        if (!empty($datos['curp'])) {
-            if (!$this->validarCURP($datos['curp'])) {
-                $errores['curp'] = 'Formato de CURP inválido';
+
+        // Fecha de nacimiento: real y no futura
+        $fecha = null;
+        if (!empty($datos['fecha_nacimiento'])) {
+            $fecha = vd_normalizar_fecha($datos['fecha_nacimiento']);
+            if ($fecha === null) {
+                $errores['fecha_nacimiento'] = 'La fecha de nacimiento no es válida';
             }
         }
-        
-        // Validar formato de Clave de Elector si se proporciona
-        if (!empty($datos['clave_elector'])) {
-            if (!$this->validarClaveElector($datos['clave_elector'])) {
-                $errores['clave_elector'] = 'Formato de Clave de Elector inválido';
-            }
+        $sexo = $datos['sexo'] ?? '';
+
+        // CURP y clave de elector: formato y fecha. Las diferencias con otros datos son solo avisos.
+        $curp = vd_validar_curp($datos['curp'] ?? '', $fecha, $sexo);
+        if ($curp['errores']) {
+            $errores['curp'] = $curp['errores'][0];
         }
-        
-        // Validar WhatsApp (10 dígitos)
-        if (!empty($datos['whatsapp'])) {
-            if (!preg_match('/^[0-9]{10}$/', $datos['whatsapp'])) {
-                $errores['whatsapp'] = 'El WhatsApp debe tener exactamente 10 dígitos';
-            } else {
-                // Verificar unicidad de WhatsApp
-                if ($this->model->existeWhatsApp($datos['whatsapp'], $excludeId)) {
-                    $errores['whatsapp'] = 'Este número de WhatsApp ya está registrado';
+        $clave = vd_validar_clave_elector($datos['clave_elector'] ?? '', $fecha, $sexo);
+        if ($clave['errores']) {
+            $errores['clave_elector'] = $clave['errores'][0];
+        }
+
+        // Teléfonos: 10 dígitos
+        if (!vd_telefono_valido($datos['whatsapp'] ?? '')) {
+            $errores['whatsapp'] = 'El WhatsApp debe tener exactamente 10 dígitos';
+        }
+        if (!vd_telefono_valido($datos['telefono'] ?? '')) {
+            $errores['telefono'] = 'El teléfono debe tener exactamente 10 dígitos';
+        }
+
+        // Email
+        if (!empty($datos['email']) && !filter_var($datos['email'], FILTER_VALIDATE_EMAIL)) {
+            $errores['email'] = 'Formato de email inválido';
+        }
+
+        // Coordenadas dentro de rango
+        if (isset($datos['latitud']) && $datos['latitud'] !== '' && (!is_numeric($datos['latitud']) || abs($datos['latitud']) > 90)) {
+            $errores['latitud'] = 'La latitud no es válida';
+        }
+        if (isset($datos['longitud']) && $datos['longitud'] !== '' && (!is_numeric($datos['longitud']) || abs($datos['longitud']) > 180)) {
+            $errores['longitud'] = 'La longitud no es válida';
+        }
+
+        // Duplicados "duros": clave de elector, CURP, WhatsApp y correo no pueden repetirse
+        $mensajes = [
+            'clave_elector' => 'Esta clave de elector ya está registrada',
+            'curp' => 'Esta CURP ya está registrada',
+            'whatsapp' => 'Este número de WhatsApp ya está registrado',
+            'email' => 'Este correo electrónico ya está registrado',
+        ];
+        foreach ($this->model->buscarDuplicados($datos, $excludeId) as $d) {
+            if ($d['tipo'] !== 'duro') { continue; }
+            foreach ($d['campos'] as $campo) {
+                if (isset($mensajes[$campo]) && !isset($errores[$campo])) {
+                    $errores[$campo] = $mensajes[$campo];
                 }
             }
         }
-        
-        // Validar sección electoral (4 dígitos)
-        if (!empty($datos['seccion_electoral'])) {
-            if (!preg_match('/^[0-9]{4}$/', $datos['seccion_electoral'])) {
-                $errores['seccion_electoral'] = 'La sección electoral debe tener exactamente 4 dígitos';
-            }
-        }
-        
-        // Validar email si se proporciona
-        if (!empty($datos['email'])) {
-            if (!filter_var($datos['email'], FILTER_VALIDATE_EMAIL)) {
-                $errores['email'] = 'Formato de email inválido';
-            } else {
-                // Verificar unicidad de email
-                if ($this->model->existeEmail($datos['email'], $excludeId)) {
-                    $errores['email'] = 'Este correo electrónico ya está registrado';
-                }
-            }
-        }
-        
+
         return $errores;
     }
-    
-    /**
-     * Valida formato de CURP
-     */
-    private function validarCURP($curp) {
-        $pattern = '/^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$/';
-        return preg_match($pattern, strtoupper($curp));
-    }
-    
-    /**
-     * Valida formato de Clave de Elector
-     */
-    private function validarClaveElector($clave) {
-        $pattern = '/^[A-Z]{6}[0-9]{8}[HM][0-9]{3}$/';
-        return preg_match($pattern, strtoupper($clave));
-    }
-    
+
     /**
      * Procesa archivo subido
      */
@@ -283,9 +404,14 @@ class SimpatizanteController {
             return ['error' => 'El archivo excede el tamaño máximo permitido'];
         }
         
-        // Validar tipo
-        if (!in_array($file['type'], ALLOWED_IMAGE_TYPES)) {
-            return ['error' => 'Tipo de archivo no permitido'];
+        // Validar el contenido real del archivo (no el tipo que declara el navegador)
+        require_once __DIR__ . '/../helpers/security.php';
+        if (!is_uploaded_file($file['tmp_name'])) {
+            return ['error' => 'Archivo no válido'];
+        }
+        $extension = seguridad_extension_imagen($file['tmp_name']);
+        if ($extension === null) {
+            return ['error' => 'Tipo de archivo no permitido. Solo se aceptan imágenes JPG o PNG'];
         }
         
         // Crear directorio si no existe
@@ -295,8 +421,7 @@ class SimpatizanteController {
         }
         
         // Generar nombre único
-        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $nombreArchivo = uniqid() . '_' . time() . '.' . $extension;
+        $nombreArchivo = bin2hex(random_bytes(12)) . '_' . time() . '.' . $extension;
         $rutaDestino = $uploadDir . '/' . $nombreArchivo;
         
         if (move_uploaded_file($file['tmp_name'], $rutaDestino)) {
@@ -332,6 +457,11 @@ class SimpatizanteController {
             return ['error' => 'Formato de datos inválido'];
         }
         
+        // La firma debe ser una imagen real y no exceder el tamaño máximo
+        if (strlen($base64Data) > MAX_FILE_SIZE || @getimagesizefromstring($base64Data) === false) {
+            return ['error' => 'La firma no es una imagen válida'];
+        }
+        
         // Crear directorio si no existe
         $uploadDir = UPLOAD_PATH . '/firmas';
         if (!is_dir($uploadDir)) {
@@ -339,7 +469,7 @@ class SimpatizanteController {
         }
         
         // Generar nombre único
-        $nombreArchivo = uniqid() . '_' . time() . '.png';
+        $nombreArchivo = bin2hex(random_bytes(12)) . '_' . time() . '.png';
         $rutaDestino = $uploadDir . '/' . $nombreArchivo;
         
         if (file_put_contents($rutaDestino, $base64Data)) {

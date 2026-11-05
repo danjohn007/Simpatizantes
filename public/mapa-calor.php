@@ -52,40 +52,91 @@ $pageTitle = 'Mapa de Calor';
 include __DIR__ . '/../app/views/layouts/header.php';
 ?>
 
+<?php
+$puntosValidos = 0;
+$porSeccion = [];
+foreach ($datosMapaCalor as $d) {
+    if (is_numeric($d['latitud']) && is_numeric($d['longitud'])) { $puntosValidos++; }
+    $sec = $d['seccion_electoral'] ?? '';
+    if ($sec !== '') { $porSeccion[$sec] = ($porSeccion[$sec] ?? 0) + 1; }
+}
+arsort($porSeccion);
+$topSeccion = $porSeccion ? array_key_first($porSeccion) : null;
+$topSeccionTotal = $topSeccion !== null ? $porSeccion[$topSeccion] : 0;
+?>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/vendor/leaflet/leaflet.css" />
 <style>
-    #mapa {
-        height: 600px;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
+    #mapa { height: 640px; border-radius: 8px; background: #dfe5ec; }
+    /* Mapa base atenuado para que el calor sea protagonista */
+    #mapa .leaflet-tile-pane { filter: grayscale(.9) brightness(1.06) contrast(.88); }
+    .map-panel { background: rgba(255,255,255,.96); border: 1px solid #e9e4de; border-radius: 8px; box-shadow: 0 4px 16px rgba(17,17,17,.12); padding: 12px 14px; font-size: .82rem; color: #1f1d1b; }
+    .map-panel h6 { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: #6e655e; margin: 0 0 8px; font-weight: 700; }
+    .legend-bar { height: 10px; border-radius: 5px; width: 190px; background: linear-gradient(90deg, #2f6fd0, #27b5a0, #f2d230, #f08a24, #d62d20); }
+    .legend-scale { display: flex; justify-content: space-between; margin-top: 4px; color: #6e655e; font-size: .72rem; }
+    .map-panel input[type=range] { width: 190px; accent-color: #b85400; }
+    .seg { display: flex; border: 2px solid #d9d2cb; border-radius: 8px; overflow: hidden; }
+    .seg button { flex: 1; border: 0; background: #fff; padding: 6px 8px; font-size: .78rem; font-weight: 600; color: #111; cursor: pointer; }
+    .seg button + button { border-left: 2px solid #d9d2cb; }
+    .seg button.on { background: #ff8000; color: #111; }
+    .seg button:focus-visible { outline: 3px solid #111; outline-offset: -3px; }
+    .map-hint { margin-top: 6px; font-size: .72rem; color: #6e655e; max-width: 190px; }
+    .map-panel label.chk { display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer; }
+    .map-empty { position: absolute; inset: 0; z-index: 500; display: grid; place-items: center; pointer-events: none; }
+    .map-empty > div { background: rgba(255,255,255,.95); border: 1px solid #e9e4de; border-radius: 10px; padding: 18px 24px; text-align: center; color: #6e655e; box-shadow: 0 4px 16px rgba(17,17,17,.12); }
+    .map-empty i { font-size: 1.8rem; color: #d9d2cb; display: block; margin-bottom: 6px; }
+    .leaflet-popup-content-wrapper { border-radius: 8px; }
+    .pop-title { font-weight: 700; color: #111111; }
+    .pop-num { display: inline-block; min-width: 24px; text-align: center; padding: 1px 8px; border-radius: 999px; background: #b85400; color: #fff; font-weight: 700; margin-right: 6px; }
 </style>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2><i class="bi bi-map-fill me-2"></i>Mapa de Calor</h2>
-            <p class="text-muted">Visualización geográfica de simpatizantes</p>
-        </div>
-        <div class="col-md-6 text-end">
-            <span class="badge bg-primary fs-6">
-                <i class="bi bi-people-fill me-1"></i>
-                <?php echo count($datosMapaCalor); ?> ubicaciones
-            </span>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Análisis territorial</div>
+            <h1>Mapa de calor</h1>
+            <div class="meta"><span><i class="bi bi-geo-alt"></i>Concentración geográfica de simpatizantes</span></div>
         </div>
     </div>
-    
+
+    <!-- Indicadores -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi"><i class="bi bi-pin-map ico"></i>
+                <div class="label">Ubicaciones registradas</div>
+                <div class="value"><?php echo number_format($puntosValidos); ?></div>
+                <div class="hint">Con coordenadas válidas</div></div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi"><i class="bi bi-diagram-3 ico"></i>
+                <div class="label">Secciones cubiertas</div>
+                <div class="value"><?php echo number_format(count($porSeccion)); ?></div>
+                <div class="hint">Secciones electorales distintas</div></div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi"><i class="bi bi-fire ico"></i>
+                <div class="label">Mayor concentración</div>
+                <div class="value"><?php echo $topSeccion !== null ? 'Sec. ' . htmlspecialchars($topSeccion) : '—'; ?></div>
+                <div class="hint"><?php echo $topSeccion !== null ? number_format($topSeccionTotal) . ' simpatizantes' : 'Sin datos'; ?></div></div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi"><i class="bi bi-megaphone ico"></i>
+                <div class="label">Campañas activas</div>
+                <div class="value"><?php echo count($campanas); ?></div>
+                <div class="hint">Disponibles para filtrar</div></div>
+        </div>
+    </div>
+
     <!-- Filtros -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card mb-4">
         <div class="card-body">
-            <form method="GET" action="" class="row g-3">
+            <form method="GET" action="" class="row g-3 align-items-end">
                 <?php if ($auth->puedeVerTodasLasCampanas()): ?>
                 <div class="col-md-4">
-                    <label class="form-label">Campaña</label>
+                    <label class="form-label small text-muted mb-1">Campaña</label>
                     <select class="form-select" name="campana_id">
                         <option value="">Todas las campañas</option>
                         <?php foreach ($campanas as $campana): ?>
-                            <option value="<?php echo $campana['id']; ?>" 
+                            <option value="<?php echo $campana['id']; ?>"
                                     <?php echo (isset($_GET['campana_id']) && $_GET['campana_id'] == $campana['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($campana['nombre']); ?>
                             </option>
@@ -93,209 +144,204 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     </select>
                 </div>
                 <?php endif; ?>
-                
                 <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
-                    <label class="form-label">Fecha Inicio</label>
-                    <input type="date" class="form-control" name="fecha_inicio" 
-                           value="<?php echo htmlspecialchars($_GET['fecha_inicio'] ?? ''); ?>">
+                    <label class="form-label small text-muted mb-1">Fecha inicio</label>
+                    <input type="date" class="form-control" name="fecha_inicio" value="<?php echo htmlspecialchars($_GET['fecha_inicio'] ?? ''); ?>">
                 </div>
-                
                 <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
-                    <label class="form-label">Fecha Fin</label>
-                    <input type="date" class="form-control" name="fecha_fin" 
-                           value="<?php echo htmlspecialchars($_GET['fecha_fin'] ?? ''); ?>">
+                    <label class="form-label small text-muted mb-1">Fecha fin</label>
+                    <input type="date" class="form-control" name="fecha_fin" value="<?php echo htmlspecialchars($_GET['fecha_fin'] ?? ''); ?>">
                 </div>
-                
                 <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-2' : 'col-md-4'; ?>">
-                    <label class="form-label">&nbsp;</label>
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary flex-fill">
-                            <i class="bi bi-search"></i> Filtrar
-                        </button>
-                        <a href="mapa-calor.php" class="btn btn-secondary flex-fill">
-                            <i class="bi bi-arrow-clockwise"></i> Limpiar
-                        </a>
+                        <button type="submit" class="btn btn-primary flex-fill"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+                        <a href="mapa-calor.php" class="btn btn-soft flex-fill" title="Limpiar filtros"><i class="bi bi-arrow-counterclockwise"></i></a>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-    
+
     <!-- Mapa -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
+    <div class="card mb-4">
+        <div class="card-body p-2 position-relative">
             <div id="mapa"></div>
-        </div>
-    </div>
-    
-    <!-- Estadísticas -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Estadísticas de Ubicación</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 text-center">
-                            <h3 class="text-primary"><?php echo count($datosMapaCalor); ?></h3>
-                            <p class="text-muted">Ubicaciones Registradas</p>
-                        </div>
-                        <div class="col-md-3 text-center">
-                            <h3 class="text-success">
-                                <?php 
-                                $secciones = array_unique(array_column($datosMapaCalor, 'seccion_electoral'));
-                                echo count($secciones); 
-                                ?>
-                            </h3>
-                            <p class="text-muted">Secciones Cubiertas</p>
-                        </div>
-                        <div class="col-md-3 text-center">
-                            <h3 class="text-warning">
-                                <?php echo count($campanas); ?>
-                            </h3>
-                            <p class="text-muted">Campañas Activas</p>
-                        </div>
-                        <div class="col-md-3 text-center">
-                            <h3 class="text-info">100%</h3>
-                            <p class="text-muted">Cobertura</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <?php if ($puntosValidos === 0): ?>
+                <div class="map-empty"><div><i class="bi bi-geo"></i>No hay ubicaciones para mostrar con estos filtros.</div></div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
 
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Leaflet.heat plugin -->
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-
+<script src="<?php echo BASE_URL; ?>/public/vendor/leaflet/leaflet.js"></script>
+<script src="<?php echo BASE_URL; ?>/public/vendor/leaflet/leaflet-heat.js"></script>
 <script>
-// Inicializar el mapa
-const mapa = L.map('mapa').setView([19.4326, -99.1332], 6);
+(function () {
+    const ubicaciones = <?php echo json_encode($datosMapaCalor); ?>;
 
-// Agregar capa de OpenStreetMap
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-}).addTo(mapa);
+    const mapa = L.map('mapa', { zoomControl: true, scrollWheelZoom: true }).setView([23.6, -102.5], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 18
+    }).addTo(mapa);
 
-// Datos de ubicaciones
-const ubicaciones = <?php echo json_encode($datosMapaCalor); ?>;
+    // Agrupar por coordenadas cercanas (~11 m)
+    const grupos = new Map();
+    ubicaciones.forEach(u => {
+        const lat = parseFloat(u.latitud), lng = parseFloat(u.longitud);
+        if (isNaN(lat) || isNaN(lng)) return;
+        const key = lat.toFixed(4) + ',' + lng.toFixed(4);
+        if (grupos.has(key)) { const g = grupos.get(key); g.count++; g.nombres.push(u.nombre_completo); }
+        else grupos.set(key, { lat, lng, count: 1, nombres: [u.nombre_completo], seccion: u.seccion_electoral });
+    });
+    const puntos = Array.from(grupos.values());
+    if (!puntos.length) { return; }
 
-// Preparar datos para el mapa de calor
-// Agrupar ubicaciones por coordenadas para contar concentración
-const locationMap = new Map();
-const markers = [];
+    let radioKm = 20;
+    let modo = 'auto';      // 'auto' | 'calor' | 'puntos'
 
-ubicaciones.forEach(function(ubicacion) {
-    const lat = parseFloat(ubicacion.latitud);
-    const lng = parseFloat(ubicacion.longitud);
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-        // Redondear coordenadas para agrupar ubicaciones cercanas
-        const latRounded = lat.toFixed(4);
-        const lngRounded = lng.toFixed(4);
-        const key = `${latRounded},${lngRounded}`;
-        
-        if (locationMap.has(key)) {
-            const existing = locationMap.get(key);
-            existing.count++;
-            existing.nombres.push(ubicacion.nombre_completo);
+    // --- Escala del calor según la densidad real de los datos ---------------------------------
+    // Cuenta, para cada punto, cuántos registros hay a menos de radioKm. El 90 % de los puntos
+    // queda por debajo del "rojo": así los datos densos no saturan todo el mapa.
+    const latMedia = puntos.reduce((acc, p) => acc + p.lat, 0) / puntos.length;
+    function calcularMax() {
+        const kmPorGrado = 111.32, cosLat = Math.cos(latMedia * Math.PI / 180);
+        const celdaLat = radioKm / kmPorGrado, celdaLng = radioKm / (kmPorGrado * cosLat);
+        const rejilla = new Map();
+        puntos.forEach(p => {
+            const k = Math.floor(p.lat / celdaLat) + ',' + Math.floor(p.lng / celdaLng);
+            if (!rejilla.has(k)) rejilla.set(k, []);
+            rejilla.get(k).push(p);
+        });
+        const vecinos = puntos.map(p => {
+            const cy = Math.floor(p.lat / celdaLat), cx = Math.floor(p.lng / celdaLng);
+            let suma = 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                const celda = rejilla.get((cy + dy) + ',' + (cx + dx));
+                if (!celda) continue;
+                celda.forEach(q => {
+                    const ky = (q.lat - p.lat) * kmPorGrado, kx = (q.lng - p.lng) * kmPorGrado * cosLat;
+                    if (Math.sqrt(kx * kx + ky * ky) <= radioKm) suma += q.count;
+                });
+            }
+            return suma;
+        }).sort((x, y) => x - y);
+        const p90 = vecinos[Math.floor(vecinos.length * 0.9)] || 1;
+        return Math.max(3, p90 * 0.45);
+    }
+
+    const heat = L.heatLayer(puntos.map(p => [p.lat, p.lng, p.count]), {
+        radius: 40, blur: 24,
+        max: calcularMax(),
+        maxZoom: 1,            // la intensidad no depende del nivel de acercamiento
+        minOpacity: 0.3,
+        gradient: { 0.2: '#2f6fd0', 0.4: '#27b5a0', 0.6: '#f2d230', 0.8: '#f08a24', 1.0: '#d62d20' }
+    }).addTo(mapa);
+
+    // Radio de influencia en km -> píxeles según el zoom. Se limita el tamaño: manchas muy grandes
+    // se recortan en bloques rectangulares y tapan el mapa.
+    function aplicarRadio() {
+        if (!mapa.hasLayer(heat)) return;
+        const mpp = 156543.03392 * Math.cos(mapa.getCenter().lat * Math.PI / 180) / Math.pow(2, mapa.getZoom());
+        const px = Math.max(12, Math.min(52, (radioKm * 1000) / mpp));
+        heat.setOptions({ radius: px, blur: px * 0.6 });
+    }
+
+    // --- Puntos -----------------------------------------------------------------------------
+    const puntosVisibles = L.layerGroup();
+    puntos.forEach(p => {
+        const info = p.nombres.length > 5
+            ? p.nombres.slice(0, 5).join('<br>') + '<br><em>... y ' + (p.nombres.length - 5) + ' más</em>'
+            : p.nombres.join('<br>');
+        const html = '<div class="pop-title"><span class="pop-num">' + p.count + '</span>Simpatizante' + (p.count > 1 ? 's' : '') + '</div>' +
+            '<div class="small text-muted mt-1">Sección ' + (p.seccion || '—') + '</div><hr class="my-2">' +
+            '<div class="small" style="max-height:140px;overflow:auto">' + info + '</div>';
+        // zona de clic (invisible) y punto visible
+        L.circleMarker([p.lat, p.lng], { radius: 14, stroke: false, fillOpacity: 0 }).bindPopup(html).addTo(mapa);
+        L.circleMarker([p.lat, p.lng], { radius: 4, color: '#111111', weight: 1.2, fillColor: '#ff8000', fillOpacity: .9, interactive: false, cnt: p.count }).addTo(puntosVisibles);
+    });
+    function radioPunto(z, cnt) {
+        const base = z <= 9 ? 2.5 : z <= 10 ? 3 : z <= 12 ? 3.8 : z <= 14 ? 5 : 6.5;
+        return base + Math.min(cnt - 1, 3) * 0.6;
+    }
+
+    // --- Qué capa se ve según el zoom y el modo --------------------------------------------------
+    // Automático: el calor se desvanece al acercar (zoom 9 a 11.5) y quedan solo los puntos.
+    function actualizarCapas() {
+        const z = mapa.getZoom();
+        let opCalor, verPuntos;
+        if (modo === 'calor')       { opCalor = 1; verPuntos = false; }
+        else if (modo === 'puntos') { opCalor = 0; verPuntos = true; }
+        else { opCalor = Math.max(0, Math.min(1, (11.5 - z) / 2.5)); verPuntos = z >= 9.5; }
+
+        if (opCalor <= 0.03) {
+            if (mapa.hasLayer(heat)) mapa.removeLayer(heat);
         } else {
-            locationMap.set(key, {
-                lat: lat,
-                lng: lng,
-                count: 1,
-                nombres: [ubicacion.nombre_completo],
-                seccion: ubicacion.seccion_electoral
-            });
+            if (!mapa.hasLayer(heat)) heat.addTo(mapa);
+            aplicarRadio();
+            if (heat._canvas) heat._canvas.style.opacity = opCalor;
+        }
+        if (verPuntos) {
+            puntosVisibles.addTo(mapa);
+            puntosVisibles.eachLayer(l => l.setRadius(radioPunto(z, l.options.cnt || 1)));
+        } else {
+            mapa.removeLayer(puntosVisibles);
         }
     }
-});
+    mapa.on('zoomend moveend', actualizarCapas);
 
-// Crear datos del mapa de calor con intensidad basada en concentración
-const heatData = [];
-locationMap.forEach(function(location) {
-    // La intensidad será proporcional al número de simpatizantes en ese punto
-    heatData.push([location.lat, location.lng, location.count]);
-    
-    // Crear marcador con información de la concentración
-    const marker = L.circleMarker([location.lat, location.lng], {
-        radius: Math.min(5 + location.count, 15),
-        fillColor: location.count > 10 ? '#dc3545' : location.count > 5 ? '#ffc107' : '#667eea',
-        color: '#fff',
-        weight: 1,
-        opacity: 1,
-        fillOpacity: 0.7
-    }).addTo(mapa);
-    
-    const nombresLista = location.nombres.length > 5 
-        ? location.nombres.slice(0, 5).join('<br>') + `<br><em>... y ${location.nombres.length - 5} más</em>`
-        : location.nombres.join('<br>');
-    
-    marker.bindPopup(`
-        <div class="p-2">
-            <h6 class="mb-2">
-                <span class="badge bg-primary">${location.count}</span>
-                Simpatizante${location.count > 1 ? 's' : ''}
-            </h6>
-            <p class="mb-1 small"><strong>Sección:</strong> ${location.seccion}</p>
-            <hr class="my-2">
-            <div class="small" style="max-height: 150px; overflow-y: auto;">
-                ${nombresLista}
-            </div>
-        </div>
-    `);
-    markers.push(marker);
-});
+    // Ajustar la vista a los datos sin acercarse de más
+    mapa.fitBounds(L.latLngBounds(puntos.map(p => [p.lat, p.lng])).pad(0.25), { maxZoom: 11 });
 
-// Agregar capa de mapa de calor con mejor configuración
-if (heatData.length > 0) {
-    L.heatLayer(heatData, {
-        radius: 30,
-        blur: 25,
-        maxZoom: 13,
-        max: Math.max(...heatData.map(d => d[2])), // Máximo basado en la concentración real
-        gradient: {
-            0.0: '#667eea',
-            0.2: '#00bfff',
-            0.4: '#00ff00',
-            0.6: '#ffff00',
-            0.8: '#ff8c00',
-            1.0: '#ff0000'
-        }
-    }).addTo(mapa);
-    
-    // Ajustar vista para mostrar todos los marcadores
-    const group = L.featureGroup(markers);
-    mapa.fitBounds(group.getBounds().pad(0.1));
-}
+    // --- Panel de control ---------------------------------------------------------------------
+    const control = L.control({ position: 'topright' });
+    control.onAdd = function () {
+        const div = L.DomUtil.create('div', 'map-panel');
+        div.innerHTML = '<h6>Vista</h6>' +
+            '<div class="seg" id="segModo">' +
+            '<button type="button" data-modo="auto" class="on">Automática</button>' +
+            '<button type="button" data-modo="calor">Calor</button>' +
+            '<button type="button" data-modo="puntos">Puntos</button></div>' +
+            '<div class="map-hint">Al acercar, el calor se desvanece y quedan solo los puntos.</div>' +
+            '<h6 style="margin-top:12px">Radio de influencia</h6>' +
+            '<input type="range" id="rngRadio" min="3" max="60" step="1" value="' + radioKm + '">' +
+            '<div class="legend-scale"><span>3 km</span><strong id="lblRadio">' + radioKm + ' km</strong><span>60 km</span></div>';
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+        return div;
+    };
+    control.addTo(mapa);
 
-// Agregar leyenda del mapa de calor
-const legend = L.control({position: 'bottomright'});
-legend.onAdd = function(map) {
-    const div = L.DomUtil.create('div', 'info legend');
-    div.innerHTML = `
-        <div style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-            <h6 style="margin: 0 0 5px 0; font-size: 0.9rem;"><strong>Concentración</strong></h6>
-            <div style="font-size: 0.8rem;">
-                <i style="background: #667eea; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Baja<br>
-                <i style="background: #00ff00; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Media<br>
-                <i style="background: #ffff00; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Alta<br>
-                <i style="background: #ff0000; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> Muy Alta
-            </div>
-        </div>
-    `;
-    return div;
-};
-legend.addTo(mapa);
+    document.getElementById('segModo').addEventListener('click', function (e) {
+        const b = e.target.closest('button[data-modo]');
+        if (!b) return;
+        modo = b.getAttribute('data-modo');
+        this.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        actualizarCapas();
+    });
+    let temporizador = null;
+    document.getElementById('rngRadio').addEventListener('input', function () {
+        radioKm = parseInt(this.value, 10);
+        document.getElementById('lblRadio').textContent = radioKm + ' km';
+        clearTimeout(temporizador);
+        temporizador = setTimeout(function () {
+            heat.setOptions({ max: calcularMax() });
+            actualizarCapas();
+        }, 120);
+    });
+
+    // Leyenda
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'map-panel');
+        div.innerHTML = '<h6>Concentración</h6><div class="legend-bar"></div>' +
+            '<div class="legend-scale"><span>Baja</span><span>Media</span><span>Alta</span></div>';
+        return div;
+    };
+    legend.addTo(mapa);
+
+    actualizarCapas();
+})();
 </script>
 
 <?php include __DIR__ . '/../app/views/layouts/footer.php'; ?>

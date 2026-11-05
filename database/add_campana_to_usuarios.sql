@@ -1,7 +1,7 @@
 -- Migración: Agregar campo campana_id a tabla usuarios
 -- Fecha: 2025-10-24
 
-USE simpatizantes_db;
+-- NOTA: seleccione primero su base de datos en phpMyAdmin. Para una versión repetible use migracion_servidor.sql
 
 -- Agregar columna campana_id a la tabla usuarios
 ALTER TABLE usuarios 

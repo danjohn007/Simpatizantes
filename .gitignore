@@ -34,3 +34,11 @@ temp/
 # Caché
 cache/
 *.cache
+
+# Respaldos generados por el sistema (contienen datos personales)
+storage/backups/*
+!storage/backups/.gitkeep
+
+# Storage: archivos temporales de importación (contienen datos personales)
+storage/importaciones/*
+!storage/importaciones/.gitkeep

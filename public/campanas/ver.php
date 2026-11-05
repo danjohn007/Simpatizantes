@@ -89,7 +89,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 <i class="bi bi-arrow-left me-2"></i>Volver
             </a>
             <?php if (in_array($auth->obtenerRol(), ['super_admin', 'admin'])): ?>
-                <a href="editar.php?id=<?php echo $campana['id']; ?>" class="btn btn-warning">
+                <a href="editar.php?id=<?php echo $campana['id']; ?>" class="btn btn-primary">
                     <i class="bi bi-pencil-fill me-2"></i>Editar
                 </a>
             <?php endif; ?>
@@ -99,8 +99,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <!-- Información General -->
     <div class="row mb-4">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Información General</h5>
                 </div>
                 <div class="card-body">
@@ -141,8 +141,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         
         <!-- Estadísticas Principales -->
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Estadísticas</h5>
                 </div>
                 <div class="card-body">
@@ -156,7 +156,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             <small class="text-muted">Validados</small>
                         </div>
                         <div class="col-6">
-                            <h3 class="text-info mb-0"><?php echo number_format($stats['total_secciones']); ?></h3>
+                            <h3 class="text-dark mb-0"><?php echo number_format($stats['total_secciones']); ?></h3>
                             <small class="text-muted">Secciones</small>
                         </div>
                         <div class="col-6">
@@ -172,8 +172,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <!-- Gráfica de Actividad -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Actividad Reciente (Últimos 30 días)</h5>
                 </div>
                 <div class="card-body">
@@ -191,8 +191,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <div class="row mb-4">
         <!-- Por Sección -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
+            <div class="card h-100">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>Top 10 Secciones</h5>
                 </div>
                 <div class="card-body">
@@ -207,8 +207,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         
         <!-- Por Capturista -->
         <div class="col-lg-6 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white">
+            <div class="card h-100">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="bi bi-people-fill me-2"></i>Top 10 Capturistas</h5>
                 </div>
                 <div class="card-body">
@@ -225,7 +225,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     <!-- Simpatizantes Recientes -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
+            <div class="card">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-people me-2"></i>Simpatizantes Recientes</h5>
                     <a href="../simpatizantes/index.php?campana_id=<?php echo $campana['id']; ?>" class="btn btn-sm btn-primary">
@@ -281,7 +281,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
 </div>
 
 <?php if (!empty($actividadDiaria) || !empty($estatsPorSeccion) || !empty($estatsPorCapturista)): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="<?php echo BASE_URL; ?>/public/vendor/chartjs/chart.umd.js"></script>
 <script>
 // Datos para las gráficas - JSON encoded with security flags
 const dataActividad = <?php echo json_encode($actividadDiaria, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
@@ -299,8 +299,8 @@ if (ctxActividad && dataActividad && dataActividad.length > 0) {
             datasets: [{
                 label: 'Simpatizantes Registrados',
                 data: dataActividad.map(item => parseInt(item.total)),
-                borderColor: 'rgb(102, 126, 234)',
-                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderColor: 'rgb(224, 106, 0)',
+                backgroundColor: 'rgba(255, 128, 0, 0.18)',
                 tension: 0.4,
                 fill: true
             }]
@@ -337,8 +337,8 @@ if (ctxSecciones && dataSecciones && dataSecciones.length > 0) {
             datasets: [{
                 label: 'Simpatizantes',
                 data: dataSecciones.map(item => parseInt(item.total)),
-                backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                borderColor: 'rgba(102, 126, 234, 1)',
+                backgroundColor: 'rgba(224, 106, 0, 0.85)',
+                borderColor: 'rgba(224, 106, 0, 1)',
                 borderWidth: 1
             }]
         },
@@ -374,16 +374,8 @@ if (ctxCapturistas && dataCapturistas && dataCapturistas.length > 0) {
             datasets: [{
                 data: dataCapturistas.map(item => parseInt(item.total)),
                 backgroundColor: [
-                    'rgba(255, 99, 132, 0.8)',
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 206, 86, 0.8)',
-                    'rgba(75, 192, 192, 0.8)',
-                    'rgba(153, 102, 255, 0.8)',
-                    'rgba(255, 159, 64, 0.8)',
-                    'rgba(199, 199, 199, 0.8)',
-                    'rgba(83, 102, 255, 0.8)',
-                    'rgba(255, 99, 255, 0.8)',
-                    'rgba(99, 255, 132, 0.8)'
+                    '#e06a00', '#111111', '#ff9f40', '#6e655e', '#b85400',
+                    '#3a3633', '#ffc58a', '#8c7b6b', '#8a3f00', '#d9d2cb'
                 ],
                 borderColor: '#fff',
                 borderWidth: 2

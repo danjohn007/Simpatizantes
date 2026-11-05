@@ -62,7 +62,7 @@ class Campana {
             return ['success' => true, 'id' => $this->db->lastInsertId()];
         }
         
-        return ['error' => 'Error al crear la campaña'];
+        return ['error' => $this->db->describirError('crear la campaña')];
     }
     
     /**
@@ -103,7 +103,7 @@ class Campana {
                     COUNT(DISTINCT s.id) as total_simpatizantes,
                     COUNT(DISTINCT s.capturista_id) as total_capturistas,
                     COUNT(DISTINCT s.seccion_electoral) as total_secciones,
-                    SUM(CASE WHEN s.validado = 1 THEN 1 ELSE 0 END) as total_validados
+                    COALESCE(SUM(CASE WHEN s.validado = 1 THEN 1 ELSE 0 END), 0) as total_validados
                 FROM simpatizantes s
                 WHERE s.campana_id = ?";
         

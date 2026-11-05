@@ -68,20 +68,16 @@ $pageTitle = 'Nueva Campaña';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2><i class="bi bi-megaphone-fill me-2"></i>Nueva Campaña</h2>
-            <p class="text-muted">Crear nueva campaña electoral</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Campañas</div>
+            <h1>Nueva campaña</h1>
+            <div class="meta"><span><i class="bi bi-megaphone"></i>Crear una campaña electoral</span></div>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="index.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Volver
-            </a>
-        </div>
+        <a href="index.php" class="btn btn-soft"><i class="bi bi-arrow-left me-2"></i>Volver</a>
     </div>
-    
+
     <?php if ($error): ?>
         <div class="alert alert-danger alert-dismissible fade show">
             <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars($error); ?>
@@ -104,14 +100,15 @@ include __DIR__ . '/../../app/views/layouts/header.php';
     
     <div class="row">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
+            <div class="card">
+                <div class="card-header">
                     <h5 class="mb-0">
                         <i class="bi bi-plus-circle-fill me-2"></i>Información de la Campaña
                     </h5>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="">
+<?php echo csrf_field(); ?>
                         <div class="row">
                             <!-- Nombre -->
                             <div class="col-md-12 mb-3">
@@ -171,10 +168,10 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         </div>
                         
                         <div class="text-end mt-4">
-                            <a href="index.php" class="btn btn-secondary me-2">
+                            <a href="index.php" class="btn btn-soft me-2">
                                 <i class="bi bi-x-circle me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-gradient">
+                            <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save-fill me-2"></i>Crear Campaña
                             </button>
                         </div>
@@ -184,9 +181,9 @@ include __DIR__ . '/../../app/views/layouts/header.php';
         </div>
         
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm bg-info bg-opacity-10">
+            <div class="card">
                 <div class="card-body">
-                    <h6><i class="bi bi-info-circle-fill text-info me-2"></i>Información</h6>
+                    <h6><i class="bi bi-info-circle me-2 text-muted"></i>Información</h6>
                     <p class="small mb-2">
                         <strong>Campos obligatorios:</strong> Los campos marcados con 
                         <span class="text-danger">*</span> son obligatorios.

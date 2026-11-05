@@ -7,18 +7,27 @@
 // Configuración de zona horaria
 date_default_timezone_set('America/Mexico_City');
 
-// Configuración de errores (cambiar a 0 en producción)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Credenciales y modo de ejecución: se leen de config/config.local.php (no versionado)
+// o de variables de entorno. Ver config/config.local.php.example
+if (is_file(__DIR__ . '/config.local.php')) {
+    require __DIR__ . '/config.local.php';
+}
 
-// Modo debug (cambiar a false en producción)
-define('APP_DEBUG', true);
+// Modo debug: desactivado por defecto (solo se activa en config.local.php de desarrollo)
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+
+// Los errores nunca se muestran al usuario en producción; se registran en el log
+error_reporting(E_ALL);
+ini_set('display_errors', APP_DEBUG ? '1' : '0');
+ini_set('log_errors', '1');
 
 // Configuración de Base de Datos
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'recaudab_simpatiza');
-define('DB_USER', 'recaudab_simpatiza');
-define('DB_PASS', 'Danjohn007!');
+defined('DB_HOST') || define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+defined('DB_NAME') || define('DB_NAME', getenv('DB_NAME') ?: '');
+defined('DB_USER') || define('DB_USER', getenv('DB_USER') ?: '');
+defined('DB_PASS') || define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_CHARSET', 'utf8mb4');
 
 // Configuración de la Aplicación
@@ -77,7 +86,7 @@ define('SMTP_HOST', 'recaudabot.digital');
 define('SMTP_PORT', 465);
 define('SMTP_SECURE', 'ssl'); // ssl para puerto 465, tls para puerto 587
 define('SMTP_USERNAME', 'resetpassword@recaudabot.digital');
-define('SMTP_PASSWORD', 'Danjohn007');
+defined('SMTP_PASSWORD') || define('SMTP_PASSWORD', getenv('SMTP_PASSWORD') ?: '');
 define('SMTP_FROM_EMAIL', 'resetpassword@recaudabot.digital');
 define('SMTP_FROM_NAME', 'Sistema de Simpatizantes');
 

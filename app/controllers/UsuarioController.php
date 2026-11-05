@@ -40,6 +40,17 @@ class UsuarioController {
     }
     
     /**
+     * Un administrador no puede gestionar cuentas de super administrador
+     * ni asignar ese rol; solo otro super administrador puede hacerlo.
+     */
+    private function puedeAsignarRol($rolNuevo, $rolActualDelObjetivo = null) {
+        if ($this->auth->obtenerRol() === 'super_admin') {
+            return true;
+        }
+        return $rolNuevo !== 'super_admin' && $rolActualDelObjetivo !== 'super_admin';
+    }
+
+    /**
      * Obtiene un usuario por ID
      */
     public function obtener($id) {
@@ -52,6 +63,10 @@ class UsuarioController {
      */
     public function crear($datos) {
         $this->auth->requiereRol(['super_admin', 'admin']);
+
+        if (!$this->puedeAsignarRol($datos['rol'] ?? '')) {
+            return ['error' => 'No tiene permiso para crear usuarios con ese rol'];
+        }
         
         // Validaciones
         $errores = $this->validar($datos);
@@ -89,6 +104,10 @@ class UsuarioController {
             return ['error' => 'Usuario no encontrado'];
         }
         
+        if (!$this->puedeAsignarRol($datos['rol'] ?? '', $datosAnteriores['rol'] ?? null)) {
+            return ['error' => 'No tiene permiso para modificar esta cuenta o asignar ese rol'];
+        }
+        
         // Validaciones
         $errores = $this->validar($datos, $id);
         if (!empty($errores)) {
@@ -111,7 +130,7 @@ class UsuarioController {
             return ['success' => true];
         }
         
-        return ['error' => 'Error al actualizar usuario'];
+        return ['error' => Database::getInstance()->describirError('actualizar el usuario')];
     }
     
     /**
@@ -123,6 +142,10 @@ class UsuarioController {
         // Solo super_admin/admin pueden cambiar password de otros
         if ($id != $this->auth->obtenerUsuarioId()) {
             $this->auth->requiereRol(['super_admin', 'admin']);
+            $objetivo = $this->model->obtenerPorId($id);
+            if (!$objetivo || !$this->puedeAsignarRol('', $objetivo['rol'] ?? null)) {
+                return ['error' => 'No tiene permiso para cambiar la contraseña de esta cuenta'];
+            }
         }
         
         if (strlen($newPassword) < PASSWORD_MIN_LENGTH) {
@@ -180,6 +203,14 @@ class UsuarioController {
      */
     public function cambiarEstado($id, $nuevoEstado) {
         $this->auth->requiereRol(['super_admin', 'admin']);
+
+        $objetivo = $this->model->obtenerPorId($id);
+        if (!$objetivo) {
+            return ['error' => 'Usuario no encontrado'];
+        }
+        if (!$this->puedeAsignarRol('', $objetivo['rol'] ?? null)) {
+            return ['error' => 'No tiene permiso para modificar esta cuenta'];
+        }
         
         $datosAnteriores = $this->model->obtenerPorId($id);
         

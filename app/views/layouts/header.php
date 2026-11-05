@@ -6,10 +6,10 @@
     <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo APP_NAME; ?></title>
     
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>/public/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/vendor/icons/bootstrap-icons.css">
     
     <!-- Custom CSS -->
     <?php
@@ -17,131 +17,14 @@
     $db_colors = Database::getInstance();
     $sql_colors = "SELECT clave, valor FROM configuracion WHERE tipo = 'color'";
     $colores = $db_colors->query($sql_colors);
-    $color_primario = '#667eea';
-    $color_secundario = '#764ba2';
+    $color_primario = '#ff8000';
+    $color_secundario = '#111111';
     foreach ($colores as $color) {
         if ($color['clave'] === 'color_primario') $color_primario = $color['valor'];
         if ($color['clave'] === 'color_secundario') $color_secundario = $color['valor'];
     }
     ?>
-    <style>
-        :root {
-            --primary-gradient: linear-gradient(135deg, <?php echo $color_primario; ?> 0%, <?php echo $color_secundario; ?> 100%);
-            --primary-color: <?php echo $color_primario; ?>;
-            --secondary-color: <?php echo $color_secundario; ?>;
-        }
-        
-        body {
-            background-color: #f8f9fa;
-        }
-        
-        .navbar {
-            background: var(--primary-gradient);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .sidebar {
-            min-height: calc(100vh - 56px);
-            background: white;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-        }
-        
-        .sidebar .nav-link {
-            color: #333;
-            padding: 12px 20px;
-            border-radius: 5px;
-            margin: 5px 10px;
-            transition: all 0.3s;
-        }
-        
-        .sidebar .nav-link:hover {
-            background: #f8f9fa;
-            color: #667eea;
-            transform: translateX(5px);
-        }
-        
-        .sidebar .nav-link.active {
-            background: var(--primary-gradient);
-            color: white;
-        }
-        
-        .sidebar .nav-link i {
-            width: 20px;
-            margin-right: 10px;
-        }
-        
-        .card {
-            border-radius: 10px;
-            transition: transform 0.3s;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .btn-gradient {
-            background: var(--primary-gradient);
-            border: none;
-            color: white;
-        }
-        
-        .btn-gradient:hover {
-            opacity: 0.9;
-            color: white;
-        }
-        
-        .content-wrapper {
-            padding: 20px;
-        }
-        
-        /* Mobile sidebar overlay */
-        @media (max-width: 768px) {
-            .sidebar {
-                position: fixed;
-                top: 56px;
-                left: -100%;
-                width: 280px;
-                height: calc(100vh - 56px);
-                z-index: 1040;
-                transition: left 0.3s ease-in-out;
-                overflow-y: auto;
-            }
-            
-            .sidebar.show {
-                left: 0;
-                box-shadow: 2px 0 10px rgba(0,0,0,0.2);
-            }
-            
-            .sidebar-overlay {
-                display: none;
-                position: fixed;
-                top: 56px;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0,0,0,0.5);
-                z-index: 1030;
-            }
-            
-            .sidebar-overlay.show {
-                display: block;
-            }
-            
-            .content-wrapper {
-                margin-left: 0 !important;
-            }
-            
-            .menu-toggle {
-                display: inline-block;
-            }
-        }
-        
-        @media (min-width: 769px) {
-            .menu-toggle {
-                display: none;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/css/theme.css?v=<?php echo @filemtime(BASE_PATH . '/public/css/theme.css') ?: 1; ?>">
 </head>
 <body>
     <!-- Navbar -->
@@ -207,9 +90,14 @@
                         <i class="bi bi-speedometer2"></i>Dashboard
                     </a>
                     
-                    <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], 'simpatizantes') !== false) ? 'active' : ''; ?>" 
+                    <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], '/public/simpatizantes/') !== false) ? 'active' : ''; ?>" 
                        href="<?php echo BASE_URL; ?>/public/simpatizantes/">
                         <i class="bi bi-people-fill"></i>Simpatizantes
+                    </a>
+
+                    <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], 'captura.php') !== false) ? 'active' : ''; ?>"
+                       href="<?php echo BASE_URL; ?>/public/captura.php">
+                        <i class="bi bi-phone-fill"></i>Captura en campo
                     </a>
                     
                     <?php if (in_array($_SESSION['rol'], ['super_admin', 'admin', 'coordinador'])): ?>
@@ -219,6 +107,13 @@
                     </a>
                     <?php endif; ?>
                     
+                    <?php if (in_array($_SESSION['rol'], ['super_admin', 'admin', 'coordinador'])): ?>
+                    <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], '/campo/') !== false) ? 'active' : ''; ?>"
+                       href="<?php echo BASE_URL; ?>/public/campo/">
+                        <i class="bi bi-bullseye"></i>Metas y zonas
+                    </a>
+                    <?php endif; ?>
+
                     <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], 'mapa-calor') !== false) ? 'active' : ''; ?>" 
                        href="<?php echo BASE_URL; ?>/public/mapa-calor.php">
                         <i class="bi bi-map-fill"></i>Mapa de Calor
@@ -252,3 +147,17 @@
             
             <!-- Main Content -->
             <main class="col-md-9 col-lg-10 ms-sm-auto content-wrapper">
+                <?php
+                // Mensajes flash (éxito / error) guardados en sesión por otras pantallas
+                $flashes = [];
+                if (!empty($_SESSION['success'])) { $flashes[] = ['success', $_SESSION['success'], 'check-circle-fill']; unset($_SESSION['success']); }
+                if (!empty($_SESSION['error']))   { $flashes[] = ['danger',  $_SESSION['error'],   'exclamation-triangle-fill']; unset($_SESSION['error']); }
+                if (empty($flashes) && ($_GET['success'] ?? '') === '1') { $flashes[] = ['success', 'Operación realizada correctamente', 'check-circle-fill']; }
+                foreach ($flashes as $f): ?>
+                    <div class="alert alert-<?php echo $f[0]; ?> alert-dismissible fade show d-flex align-items-center" role="alert">
+                        <i class="bi bi-<?php echo $f[2]; ?> me-2"></i>
+                        <div><?php echo htmlspecialchars($f[1]); ?></div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                <?php endforeach; ?>
+

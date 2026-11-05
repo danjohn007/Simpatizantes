@@ -67,31 +67,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'longitud' => $_POST['longitud'] ?? '',
         'campana_id' => $_POST['campana_id'] ?? '',
         'metodo_captura' => $_POST['metodo_captura'] ?? 'manual',
-        'validado' => isset($_POST['validado']) ? 1 : 0,
         'observaciones' => $_POST['observaciones'] ?? ''
     ];
     
     // Procesar archivos si se subieron nuevos
-    if (isset($_FILES['foto_ine_frontal']) && $_FILES['foto_ine_frontal']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['foto_ine_frontal'], 'ine_frontal');
-        if (isset($result['success'])) {
-            $datos['foto_ine_frontal'] = $result['archivo'];
+    $archivoError = '';
+    foreach (['ine_frontal' => 'ine_frontal', 'ine_posterior' => 'ine_posterior'] as $campo => $carpeta) {
+        if (isset($_FILES[$campo]) && $_FILES[$campo]['size'] > 0) {
+            $resArchivo = $controller->procesarArchivo($_FILES[$campo], $carpeta);
+            if (isset($resArchivo['success'])) {
+                $datos[$campo] = $resArchivo['archivo'];
+            } else {
+                $archivoError = $resArchivo['error'] ?? 'No se pudo subir el archivo';
+            }
         }
     }
     
-    if (isset($_FILES['foto_ine_reverso']) && $_FILES['foto_ine_reverso']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['foto_ine_reverso'], 'ine_reverso');
-        if (isset($result['success'])) {
-            $datos['foto_ine_reverso'] = $result['archivo'];
-        }
-    }
-    
-    if (isset($_FILES['foto_comprobante']) && $_FILES['foto_comprobante']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['foto_comprobante'], 'comprobantes');
-        if (isset($result['success'])) {
-            $datos['foto_comprobante'] = $result['archivo'];
-        }
-    }
+    if ($archivoError !== '') {
+        $error = $archivoError;
+        $errores = [];
+    } else {
     
     $result = $controller->actualizar($id, $datos);
     
@@ -103,6 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = $result['error'] ?? 'Error al actualizar simpatizante';
         $errores = $result['errores'] ?? [];
     }
+    }
+}
+
+// Si hubo error, mostrar lo que el usuario escribió
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($datos)) {
+    $simpatizante = array_merge($simpatizante, $datos);
 }
 
 $campanas = $campanaModel->obtenerTodas(1);
@@ -111,40 +112,40 @@ $pageTitle = 'Editar Simpatizante';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/public/simpatizantes/index.php">Simpatizantes</a></li>
-                    <li class="breadcrumb-item"><a href="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=<?php echo $id; ?>">Detalles</a></li>
-                    <li class="breadcrumb-item active">Editar</li>
-                </ol>
-            </nav>
-            <h2><i class="bi bi-pencil-fill me-2"></i>Editar Simpatizante</h2>
-            <p class="text-muted">Actualizar información del simpatizante</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Simpatizantes</div>
+            <h1>Editar simpatizante</h1>
+            <div class="meta"><span><i class="bi bi-person"></i><?php echo htmlspecialchars($simpatizante['nombre_completo'] ?? ''); ?></span></div>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=<?php echo $id; ?>" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Cancelar
-            </a>
-        </div>
+        <a href="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=<?php echo $id; ?>" class="btn btn-soft">
+            <i class="bi bi-arrow-left me-2"></i>Cancelar
+        </a>
     </div>
-    
+
     <?php if ($error): ?>
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars($error); ?>
+            <?php if (!empty($errores)): ?>
+                <ul class="mb-0 mt-2"><?php foreach ($errores as $e): ?><li><?php echo htmlspecialchars($e); ?></li><?php endforeach; ?></ul>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
     
     <!-- Formulario -->
-    <form method="POST" action="" enctype="multipart/form-data">
+    <form method="POST" action="" enctype="multipart/form-data" id="formSimpatizante"
+          data-id="<?php echo (int)$id; ?>"
+          data-api="<?php echo BASE_URL; ?>/public/api/verificar-calidad.php"
+          data-ver="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=">
+<?php echo csrf_field(); ?>
+        <div id="calidadPanel" class="mb-3" aria-live="polite"></div>
+
         <div class="row">
             <!-- Información Personal -->
             <div class="col-lg-6">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-person-fill me-2"></i>Información Personal</h5>
                     </div>
                     <div class="card-body">
@@ -194,8 +195,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Información Electoral -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-card-checklist me-2"></i>Información Electoral</h5>
                     </div>
                     <div class="card-body">
@@ -252,14 +253,14 @@ include __DIR__ . '/../../app/views/layouts/header.php';
             <!-- Contacto y Redes Sociales -->
             <div class="col-lg-6">
                 <!-- Contacto -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-telephone-fill me-2"></i>Información de Contacto</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="form-label">Teléfono</label>
-                            <input type="tel" class="form-control" name="telefono" pattern="[0-9]{10}" maxlength="10"
+                            <input type="tel" class="form-control" name="telefono" pattern="[0-9]{10}" maxlength="16" inputmode="numeric"
                                    value="<?php echo htmlspecialchars($simpatizante['telefono'] ?? ''); ?>">
                             <small class="text-muted">10 dígitos sin espacios ni guiones</small>
                         </div>
@@ -267,7 +268,7 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         <div class="mb-3">
                             <label class="form-label">WhatsApp</label>
                             <input type="tel" class="form-control <?php echo isset($errores['whatsapp']) ? 'is-invalid' : ''; ?>" 
-                                   name="whatsapp" pattern="[0-9]{10}" maxlength="10"
+                                   name="whatsapp" pattern="[0-9]{10}" maxlength="16" inputmode="numeric"
                                    value="<?php echo htmlspecialchars($simpatizante['whatsapp'] ?? ''); ?>">
                             <?php if (isset($errores['whatsapp'])): ?>
                                 <div class="invalid-feedback"><?php echo $errores['whatsapp']; ?></div>
@@ -288,37 +289,37 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Redes Sociales -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-share-fill me-2"></i>Redes Sociales</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-twitter text-info"></i> Twitter/X</label>
+                            <label class="form-label"><i class="bi bi-twitter text-muted"></i> Twitter/X</label>
                             <input type="text" class="form-control" name="twitter"
                                    value="<?php echo htmlspecialchars($simpatizante['twitter'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-instagram text-danger"></i> Instagram</label>
+                            <label class="form-label"><i class="bi bi-instagram text-muted"></i> Instagram</label>
                             <input type="text" class="form-control" name="instagram"
                                    value="<?php echo htmlspecialchars($simpatizante['instagram'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-facebook text-primary"></i> Facebook</label>
+                            <label class="form-label"><i class="bi bi-facebook text-muted"></i> Facebook</label>
                             <input type="text" class="form-control" name="facebook"
                                    value="<?php echo htmlspecialchars($simpatizante['facebook'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-youtube text-danger"></i> YouTube</label>
+                            <label class="form-label"><i class="bi bi-youtube text-muted"></i> YouTube</label>
                             <input type="text" class="form-control" name="youtube"
                                    value="<?php echo htmlspecialchars($simpatizante['youtube'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-tiktok"></i> TikTok</label>
+                            <label class="form-label"><i class="bi bi-tiktok text-muted"></i> TikTok</label>
                             <input type="text" class="form-control" name="tiktok"
                                    value="<?php echo htmlspecialchars($simpatizante['tiktok'] ?? ''); ?>">
                         </div>
@@ -326,8 +327,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Campaña y Estado -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-megaphone-fill me-2"></i>Campaña y Estado</h5>
                     </div>
                     <div class="card-body">
@@ -353,17 +354,15 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             </select>
                         </div>
                         
-                        <?php if (in_array($auth->obtenerRol(), ['super_admin', 'admin', 'coordinador'])): ?>
+                        <?php
+                        $estatusActual = $simpatizante['estatus_validacion'] ?? (!empty($simpatizante['validado']) ? 'validado' : 'pendiente');
+                        $etiquetasEstatus = ['pendiente' => 'Pendiente', 'validado' => 'Validado', 'rechazado' => 'Rechazado'];
+                        ?>
                         <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="validado" id="validado" 
-                                       <?php echo (!empty($simpatizante['validado'])) ? 'checked' : ''; ?>>
-                                <label class="form-check-label" for="validado">
-                                    Validado
-                                </label>
-                            </div>
+                            <label class="form-label d-block">Estado de validación</label>
+                            <span class="status-pill <?php echo $estatusActual === 'validado' ? 'on' : 'off'; ?>"><?php echo $etiquetasEstatus[$estatusActual] ?? 'Pendiente'; ?></span>
+                            <small class="text-muted ms-2">Se cambia desde el <a href="ver.php?id=<?php echo (int)$id; ?>">detalle del simpatizante</a>, con motivo e historial.</small>
                         </div>
-                        <?php endif; ?>
                         
                         <div class="mb-3">
                             <label class="form-label">Observaciones</label>
@@ -373,8 +372,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Ubicación y Archivos -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>Ubicación</h5>
                     </div>
                     <div class="card-body">
@@ -394,67 +393,42 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Documentos -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-file-earmark-image me-2"></i>Documentos</h5>
                     </div>
                     <div class="card-body">
+                        <?php foreach ([['ine_frontal', 'INE frontal'], ['ine_posterior', 'INE reverso']] as $doc): ?>
                         <div class="mb-3">
-                            <label class="form-label">INE Frontal</label>
-                            <?php if (!empty($simpatizante['foto_ine_frontal'])): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">Archivo actual: </small>
-                                    <a href="<?php echo BASE_URL; ?>/public/<?php echo htmlspecialchars($simpatizante['foto_ine_frontal']); ?>" target="_blank">Ver archivo</a>
+                            <label class="form-label"><?php echo $doc[1]; ?></label>
+                            <?php if (!empty($simpatizante[$doc[0]])): ?>
+                                <div class="mb-2 small">
+                                    <span class="text-muted">Archivo actual:</span>
+                                    <a href="<?php echo BASE_URL; ?>/public/archivo.php?f=<?php echo urlencode($simpatizante[$doc[0]]); ?>" target="_blank" rel="noopener">Ver archivo</a>
                                 </div>
                             <?php endif; ?>
-                            <input type="file" class="form-control" name="foto_ine_frontal" accept="image/*">
-                            <small class="text-muted">Dejar vacío para mantener el archivo actual</small>
+                            <input type="file" class="form-control" name="<?php echo $doc[0]; ?>" accept="image/jpeg,image/png">
+                            <div class="form-text">JPG o PNG, máximo 5 MB. Déjelo vacío para conservar el actual.</div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">INE Reverso</label>
-                            <?php if (!empty($simpatizante['foto_ine_reverso'])): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">Archivo actual: </small>
-                                    <a href="<?php echo BASE_URL; ?>/public/<?php echo htmlspecialchars($simpatizante['foto_ine_reverso']); ?>" target="_blank">Ver archivo</a>
-                                </div>
-                            <?php endif; ?>
-                            <input type="file" class="form-control" name="foto_ine_reverso" accept="image/*">
-                            <small class="text-muted">Dejar vacío para mantener el archivo actual</small>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Comprobante de Domicilio</label>
-                            <?php if (!empty($simpatizante['foto_comprobante'])): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">Archivo actual: </small>
-                                    <a href="<?php echo BASE_URL; ?>/public/<?php echo htmlspecialchars($simpatizante['foto_comprobante']); ?>" target="_blank">Ver archivo</a>
-                                </div>
-                            <?php endif; ?>
-                            <input type="file" class="form-control" name="foto_comprobante" accept="image/*">
-                            <small class="text-muted">Dejar vacío para mantener el archivo actual</small>
-                        </div>
+                        <?php endforeach; ?>
+                        <?php if (!empty($simpatizante['firma_digital'])): ?>
+                            <div class="small">
+                                <span class="text-muted">Firma digital:</span>
+                                <a href="<?php echo BASE_URL; ?>/public/archivo.php?f=<?php echo urlencode($simpatizante['firma_digital']); ?>" target="_blank" rel="noopener">Ver firma</a>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Botones -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <button type="submit" class="btn btn-gradient btn-lg">
-                            <i class="bi bi-save me-2"></i>Guardar Cambios
-                        </button>
-                        <a href="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=<?php echo $id; ?>" class="btn btn-secondary btn-lg">
-                            <i class="bi bi-x-circle me-2"></i>Cancelar
-                        </a>
-                    </div>
-                </div>
-            </div>
+        <!-- Acciones -->
+        <div class="action-bar">
+            <a href="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=<?php echo $id; ?>" class="btn btn-soft">Cancelar</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i>Guardar cambios</button>
         </div>
     </form>
 </div>
 
+<script src="<?php echo BASE_URL; ?>/public/js/calidad-datos.js?v=<?php echo @filemtime(__DIR__ . '/../js/calidad-datos.js'); ?>"></script>
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

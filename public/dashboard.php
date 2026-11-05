@@ -61,304 +61,218 @@ $pageTitle = 'Dashboard';
 include __DIR__ . '/../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid py-4">
-    <!-- Bienvenida -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-1">Bienvenido, <?php echo htmlspecialchars($_SESSION['nombre_completo']); ?></h2>
-            <p class="text-muted">
-                <i class="bi bi-shield-check"></i> Rol: <strong><?php echo ucfirst($_SESSION['rol']); ?></strong>
-            </p>
+<?php
+$meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+$dias  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+$fechaHoy = ucfirst($dias[(int)date('w')]) . ' ' . date('j') . ' de ' . $meses[(int)date('n') - 1] . ' de ' . date('Y');
+$pctMes = $totalSimpatizantes > 0 ? round(($totalMes / $totalSimpatizantes) * 100, 1) : 0;
+$topSecciones = array_slice($estatsPorSeccion, 0, 8);
+$maxSeccion = 0;
+foreach ($topSecciones as $s) { $maxSeccion = max($maxSeccion, (int)$s['total']); }
+$promSeccion = count($estatsPorSeccion) > 0 ? round($totalSimpatizantes / count($estatsPorSeccion), 1) : 0;
+?>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Panel de control</div>
+            <h1>Bienvenido, <?php echo htmlspecialchars($_SESSION['nombre_completo']); ?></h1>
+            <div class="meta">
+                <span><i class="bi bi-calendar3"></i><?php echo $fechaHoy; ?></span>
+                <span><i class="bi bi-shield-check"></i>Rol: <?php echo htmlspecialchars(ucfirst($_SESSION['rol'])); ?></span>
+            </div>
         </div>
+        <a href="<?php echo BASE_URL; ?>/public/simpatizantes/crear.php" class="btn btn-primary">
+            <i class="bi bi-person-plus-fill me-2"></i>Registrar simpatizante
+        </a>
     </div>
-    
-    <!-- Tarjetas de estadísticas -->
-    <div class="row mb-4">
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Total Simpatizantes</p>
-                            <h3 class="mb-0"><?php echo number_format($totalSimpatizantes); ?></h3>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-people-fill text-primary" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
+
+    <!-- Indicadores -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi">
+                <i class="bi bi-people ico"></i>
+                <div class="label">Total de simpatizantes</div>
+                <div class="value" data-count="<?php echo (int)$totalSimpatizantes; ?>"><?php echo number_format($totalSimpatizantes); ?></div>
+                <div class="hint">Registros en el sistema</div>
             </div>
         </div>
-        
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Últimos 30 días</p>
-                            <h3 class="mb-0"><?php echo number_format($totalMes); ?></h3>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-graph-up-arrow text-success" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi">
+                <i class="bi bi-graph-up-arrow ico"></i>
+                <div class="label">Últimos 30 días</div>
+                <div class="value" data-count="<?php echo (int)$totalMes; ?>"><?php echo number_format($totalMes); ?></div>
+                <div class="hint"><?php echo $pctMes; ?>% del total acumulado</div>
             </div>
         </div>
-        
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Campañas Activas</p>
-                            <h3 class="mb-0"><?php echo count($campanas); ?></h3>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-megaphone-fill text-warning" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi">
+                <i class="bi bi-megaphone ico"></i>
+                <div class="label">Campañas activas</div>
+                <div class="value" data-count="<?php echo count($campanas); ?>"><?php echo count($campanas); ?></div>
+                <div class="hint">En operación actualmente</div>
             </div>
         </div>
-        
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Secciones Cubiertas</p>
-                            <h3 class="mb-0"><?php echo count($estatsPorSeccion); ?></h3>
-                        </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-geo-alt-fill text-info" style="font-size: 2rem;"></i>
-                        </div>
-                    </div>
-                </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi">
+                <i class="bi bi-geo-alt ico"></i>
+                <div class="label">Secciones cubiertas</div>
+                <div class="value" data-count="<?php echo count($estatsPorSeccion); ?>"><?php echo count($estatsPorSeccion); ?></div>
+                <div class="hint">Promedio de <?php echo $promSeccion; ?> por sección</div>
             </div>
         </div>
     </div>
-    
-    <!-- Gráficas -->
-    <div class="row">
-        <div class="col-lg-8 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-bar-chart-fill me-2"></i>Simpatizantes por Sección Electoral
-                    </h5>
+
+    <!-- Actividad -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Actividad de registros</h5>
+            <span class="text-muted small">Últimos 30 días</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-box sm"><canvas id="chartActividad"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Secciones -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Simpatizantes por sección electoral</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="chartSecciones" height="100"></canvas>
+                    <div class="chart-box"><canvas id="chartSecciones"></canvas></div>
                 </div>
             </div>
         </div>
-        
-        <div class="col-lg-4 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-list-ul me-2"></i>Top Secciones
-                    </h5>
-                </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Secciones con mayor presencia</h5></div>
                 <div class="card-body">
-                    <div class="list-group list-group-flush">
-                        <?php 
-                        $topSecciones = array_slice($estatsPorSeccion, 0, 5);
-                        foreach ($topSecciones as $seccion): 
-                        ?>
-                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                <span>Sección <?php echo htmlspecialchars($seccion['seccion_electoral']); ?></span>
-                                <span class="badge bg-primary rounded-pill">
-                                    <?php echo number_format($seccion['total']); ?>
-                                </span>
+                    <?php if (empty($topSecciones)): ?>
+                        <p class="text-muted mb-0">Aún no hay registros por sección.</p>
+                    <?php endif; ?>
+                    <?php foreach ($topSecciones as $i => $seccion): ?>
+                        <div class="rank-row">
+                            <span class="pos"><?php echo $i + 1; ?></span>
+                            <div>
+                                <div class="name">Sección <?php echo htmlspecialchars($seccion['seccion_electoral']); ?></div>
+                                <div class="bar"><span style="width: <?php echo $maxSeccion > 0 ? round(($seccion['total'] / $maxSeccion) * 100) : 0; ?>%"></span></div>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
+                            <span class="num"><?php echo number_format($seccion['total']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Gráfica de Actividad de Registros -->
-    <div class="row">
-        <div class="col-12 mb-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-graph-up me-2"></i>Actividad de Registros (Últimos 30 días)
-                    </h5>
+
+    <!-- Accesos -->
+    <div class="card">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-grid me-2"></i>Accesos directos</h5></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-xl-3 col-md-6">
+                    <a class="quick" href="<?php echo BASE_URL; ?>/public/simpatizantes/crear.php">
+                        <span class="qi"><i class="bi bi-person-plus"></i></span>
+                        <span><b>Registrar simpatizante</b><small>Captura con INE y firma</small></span>
+                        <i class="bi bi-chevron-right go"></i>
+                    </a>
                 </div>
-                <div class="card-body">
-                    <canvas id="chartActividad" height="100"></canvas>
+                <div class="col-xl-3 col-md-6">
+                    <a class="quick" href="<?php echo BASE_URL; ?>/public/simpatizantes/">
+                        <span class="qi"><i class="bi bi-list-ul"></i></span>
+                        <span><b>Padrón de simpatizantes</b><small>Consultar y filtrar</small></span>
+                        <i class="bi bi-chevron-right go"></i>
+                    </a>
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Acciones rápidas -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">
-                        <i class="bi bi-lightning-fill me-2"></i>Acciones Rápidas
-                    </h5>
+                <div class="col-xl-3 col-md-6">
+                    <a class="quick" href="<?php echo BASE_URL; ?>/public/reportes/">
+                        <span class="qi"><i class="bi bi-file-earmark-bar-graph"></i></span>
+                        <span><b>Reportes</b><small>Análisis y exportación</small></span>
+                        <i class="bi bi-chevron-right go"></i>
+                    </a>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <a href="<?php echo BASE_URL; ?>/public/simpatizantes/crear.php" 
-                               class="btn btn-primary w-100 py-3">
-                                <i class="bi bi-person-plus-fill d-block mb-2" style="font-size: 2rem;"></i>
-                                Registrar Simpatizante
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <a href="<?php echo BASE_URL; ?>/public/simpatizantes/" 
-                               class="btn btn-info w-100 py-3 text-white">
-                                <i class="bi bi-list-ul d-block mb-2" style="font-size: 2rem;"></i>
-                                Ver Simpatizantes
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <a href="<?php echo BASE_URL; ?>/public/reportes/" 
-                               class="btn btn-success w-100 py-3">
-                                <i class="bi bi-graph-up d-block mb-2" style="font-size: 2rem;"></i>
-                                Reportes
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <a href="<?php echo BASE_URL; ?>/public/mapa-calor.php" 
-                               class="btn btn-warning w-100 py-3">
-                                <i class="bi bi-map-fill d-block mb-2" style="font-size: 2rem;"></i>
-                                Mapa de Calor
-                            </a>
-                        </div>
-                    </div>
+                <div class="col-xl-3 col-md-6">
+                    <a class="quick" href="<?php echo BASE_URL; ?>/public/mapa-calor.php">
+                        <span class="qi"><i class="bi bi-map"></i></span>
+                        <span><b>Mapa de calor</b><small>Distribución territorial</small></span>
+                        <i class="bi bi-chevron-right go"></i>
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="<?php echo BASE_URL; ?>/public/vendor/chartjs/chart.umd.js"></script>
 <script>
-// Gráfica de secciones electorales
-const ctxSecciones = document.getElementById('chartSecciones').getContext('2d');
-const dataSecciones = <?php echo json_encode($estatsPorSeccion); ?>;
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.color = '#6e655e';
+const NAVY = '#e06a00', GRID = '#efeae4';
 
-new Chart(ctxSecciones, {
+// Secciones electorales
+const dataSecciones = <?php echo json_encode($estatsPorSeccion); ?>;
+new Chart(document.getElementById('chartSecciones'), {
     type: 'bar',
     data: {
-        labels: dataSecciones.map(item => 'Sección ' + item.seccion_electoral),
-        datasets: [{
-            label: 'Simpatizantes',
-            data: dataSecciones.map(item => item.total),
-            backgroundColor: 'rgba(102, 126, 234, 0.8)',
-            borderColor: 'rgba(102, 126, 234, 1)',
-            borderWidth: 1
-        }]
+        labels: dataSecciones.map(i => i.seccion_electoral),
+        datasets: [{ label: 'Simpatizantes', data: dataSecciones.map(i => i.total), backgroundColor: NAVY, borderRadius: 3, maxBarThickness: 36 }]
     },
     options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            }
-        },
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { title: c => 'Sección ' + c[0].label } } },
         scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    stepSize: 1
-                }
-            }
+            y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: GRID }, border: { display: false } },
+            x: { grid: { display: false }, title: { display: true, text: 'Sección electoral' } }
         }
     }
 });
 
-// Gráfica de Actividad de Registros
-const ctxActividad = document.getElementById('chartActividad').getContext('2d');
+// Actividad últimos 30 días
 const dataActividad = <?php echo json_encode($estatsPorDia); ?>;
-
-// Crear array completo de fechas (últimos 30 días)
-const fechas = [];
 const registros = {};
-
-// Inicializar registros con los datos existentes
-dataActividad.forEach(item => {
-    registros[item.fecha] = parseInt(item.total);
-});
-
-// Generar array de 30 días
+dataActividad.forEach(i => { registros[i.fecha] = parseInt(i.total); });
+const fechas = [];
 for (let i = 29; i >= 0; i--) {
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() - i);
-    const fechaStr = fecha.toISOString().split('T')[0];
-    fechas.push(fechaStr);
+    const f = new Date(); f.setDate(f.getDate() - i);
+    fechas.push(f.toISOString().split('T')[0]);
 }
-
-// Preparar datos para la gráfica
-const valoresActividad = fechas.map(fecha => registros[fecha] || 0);
-const etiquetasFechas = fechas.map(fecha => {
-    const d = new Date(fecha + 'T00:00:00');
-    return d.getDate() + '/' + (d.getMonth() + 1);
-});
-
-new Chart(ctxActividad, {
+const valores = fechas.map(f => registros[f] || 0);
+const etiquetas = fechas.map(f => { const d = new Date(f + 'T00:00:00'); return d.getDate() + '/' + (d.getMonth() + 1); });
+const ctxA = document.getElementById('chartActividad').getContext('2d');
+const grad = ctxA.createLinearGradient(0, 0, 0, 260);
+grad.addColorStop(0, 'rgba(255,128,0,.30)');
+grad.addColorStop(1, 'rgba(224,106,0,0)');
+new Chart(ctxA, {
     type: 'line',
-    data: {
-        labels: etiquetasFechas,
-        datasets: [{
-            label: 'Registros por Día',
-            data: valoresActividad,
-            backgroundColor: 'rgba(40, 167, 69, 0.2)',
-            borderColor: 'rgba(40, 167, 69, 1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.4
-        }]
-    },
+    data: { labels: etiquetas, datasets: [{ label: 'Registros por día', data: valores, borderColor: NAVY, backgroundColor: grad, borderWidth: 2, fill: true, tension: .3, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: NAVY }] },
     options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         plugins: {
-            legend: {
-                display: true,
-                position: 'top'
-            },
-            tooltip: {
-                callbacks: {
-                    title: function(context) {
-                        const idx = context[0].dataIndex;
-                        const fecha = fechas[idx];
-                        const d = new Date(fecha + 'T00:00:00');
-                        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-                        return dias[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
-                    },
-                    label: function(context) {
-                        return 'Registros: ' + context.parsed.y;
-                    }
-                }
-            }
+            legend: { display: false },
+            tooltip: { callbacks: {
+                title: c => { const d = new Date(fechas[c[0].dataIndex] + 'T00:00:00'); return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); },
+                label: c => 'Registros: ' + c.parsed.y
+            } }
         },
         scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    stepSize: 1
-                }
-            },
-            x: {
-                ticks: {
-                    maxRotation: 45,
-                    minRotation: 45
-                }
-            }
+            y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: GRID }, border: { display: false } },
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 10, maxRotation: 0 } }
         }
     }
+});
+
+// Conteo animado de los indicadores
+document.querySelectorAll('[data-count]').forEach(el => {
+    const target = parseInt(el.dataset.count, 10);
+    if (!target || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const t0 = performance.now(), dur = 900;
+    (function tick(t) {
+        const p = Math.min((t - t0) / dur, 1), e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(target * e).toLocaleString('es-MX');
+        if (p < 1) requestAnimationFrame(tick);
+    })(t0);
 });
 </script>
 

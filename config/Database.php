@@ -7,6 +7,7 @@
 class Database {
     private static $instance = null;
     private $connection;
+    private $lastError = null;
     
     /**
      * Constructor privado para patrón Singleton
@@ -23,7 +24,9 @@ class Database {
             
             $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
-            die("Error de conexión a la base de datos: " . $e->getMessage());
+            error_log("Error de conexión a la base de datos: " . $e->getMessage());
+            http_response_code(500);
+            die("No fue posible conectar con la base de datos. Intente más tarde.");
         }
     }
     
@@ -53,7 +56,7 @@ class Database {
             $stmt->execute($params);
             return $stmt->fetchAll();
         } catch (PDOException $e) {
-            error_log("Error en query: " . $e->getMessage());
+            $this->registrarError($e, "query");
             return false;
         }
     }
@@ -67,7 +70,7 @@ class Database {
             $stmt->execute($params);
             return $stmt->fetch();
         } catch (PDOException $e) {
-            error_log("Error en queryOne: " . $e->getMessage());
+            $this->registrarError($e, "queryOne");
             return false;
         }
     }
@@ -76,15 +79,60 @@ class Database {
      * Ejecuta una consulta INSERT, UPDATE o DELETE
      */
     public function execute($sql, $params = []) {
+        $this->lastError = null;
         try {
             $stmt = $this->connection->prepare($sql);
             return $stmt->execute($params);
         } catch (PDOException $e) {
-            error_log("Error en execute: " . $e->getMessage());
+            $this->registrarError($e, "execute");
             return false;
         }
     }
     
+    /**
+     * Guarda y registra el último error de base de datos
+     */
+    private function registrarError(PDOException $e, $origen) {
+        $this->lastError = [
+            'code'    => isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0,
+            'message' => $e->getMessage(),
+        ];
+        error_log("Error en $origen: " . $e->getMessage());
+    }
+
+    /**
+     * Mensaje comprensible para el usuario según el último error de base de datos.
+     * No incluye datos sensibles; el detalle completo queda en el log del servidor.
+     */
+    public function describirError($contexto) {
+        if (!$this->lastError) {
+            return "No se pudo $contexto.";
+        }
+        $code = $this->lastError['code'];
+        $msg  = $this->lastError['message'];
+        switch ($code) {
+            case 1062:
+                return "No se pudo $contexto: ya existe un registro con esos datos.";
+            case 1452:
+                return "No se pudo $contexto: un dato relacionado (por ejemplo la campaña) ya no existe.";
+            case 1054:
+                preg_match("/Unknown column '([^']+)'/", $msg, $m);
+                return "No se pudo $contexto: a la base de datos le falta la columna '" . ($m[1] ?? '?') . "'. Hay que actualizar su estructura.";
+            case 1406:
+                return "No se pudo $contexto: alguno de los textos es más largo de lo permitido.";
+            case 1048:
+            case 1364:
+                return "No se pudo $contexto: falta un dato obligatorio.";
+            case 1146:
+                return "No se pudo $contexto: falta una tabla en la base de datos.";
+            case 1044:
+            case 1142:
+                return "No se pudo $contexto: el usuario de la base de datos no tiene permiso para escribir (código $code).";
+            default:
+                return "No se pudo $contexto (error de base de datos $code). Revise el registro de errores del servidor.";
+        }
+    }
+
     /**
      * Obtiene el último ID insertado
      */

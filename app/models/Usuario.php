@@ -211,7 +211,7 @@ class Usuario {
             return ['success' => true, 'id' => $this->db->lastInsertId()];
         }
         
-        return ['error' => 'Error al crear el usuario'];
+        return ['error' => $this->db->describirError('crear el usuario')];
     }
     
     /**

@@ -15,7 +15,19 @@
     RewriteRule ^config/.*$ - [F,L]
     RewriteRule ^app/.*$ - [F,L]
     RewriteRule ^database/.*$ - [F,L]
+    RewriteRule ^storage/.*$ - [F,L]
+    RewriteRule ^cron/.*$ - [F,L]
+    RewriteRule ^tmp/.*$ - [F,L]
 </IfModule>
+
+# Sin listado de directorios
+Options -Indexes
+
+# Bloquear logs y archivos temporales
+<FilesMatch "(^error_log$|\.(log|tmp|bak|sql|md|zip)$)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
 
 # Proteger archivos sensibles
 <FilesMatch "^\.">
@@ -49,6 +61,8 @@
     Header set X-Content-Type-Options "nosniff"
     Header set X-Frame-Options "SAMEORIGIN"
     Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.tailwindcss.com cdn.jsdelivr.net code.jquery.com unpkg.com fonts.googleapis.com maps.googleapis.com *.googleapis.com accounts.google.com www.paypal.com www.paypalobjects.com www.gstatic.com *.gstatic.com; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdn.tailwindcss.com unpkg.com fonts.googleapis.com *.googleapis.com; font-src 'self' data: cdn.jsdelivr.net fonts.gstatic.com *.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' accounts.google.com www.paypal.com"
 </IfModule>
 
 # Tamaño máximo de subida

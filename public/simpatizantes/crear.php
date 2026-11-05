@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'ano_registro' => $_POST['ano_registro'] ?? '',
         'vigencia' => $_POST['vigencia'] ?? '',
         'seccion_electoral' => $_POST['seccion_electoral'] ?? '',
+        'telefono' => $_POST['telefono'] ?? '',
         'whatsapp' => $_POST['whatsapp'] ?? '',
         'email' => $_POST['email'] ?? '',
         'twitter' => $_POST['twitter'] ?? '',
@@ -43,38 +44,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'longitud' => $_POST['longitud'] ?? '',
         'campana_id' => $_POST['campana_id'] ?? '',
         'metodo_captura' => $_POST['metodo_captura'] ?? 'manual',
-        'validado' => isset($_POST['validado']) ? 1 : 0
+        // Solo quien tiene permiso puede marcar un registro como validado
+        'validado' => (in_array($auth->obtenerRol(), ['super_admin', 'admin', 'coordinador']) && isset($_POST['validado'])) ? 1 : 0
     ];
     
-    // Procesar archivos
-    if (isset($_FILES['ine_frontal']) && $_FILES['ine_frontal']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['ine_frontal'], 'ine_frontal');
-        if (isset($result['success'])) {
-            $datos['ine_frontal'] = $result['archivo'];
+    // Procesar archivos (si falla una subida, se informa y no se guarda el registro)
+    $archivoError = '';
+    foreach (['ine_frontal', 'ine_posterior'] as $campo) {
+        if (isset($_FILES[$campo]) && $_FILES[$campo]['size'] > 0) {
+            $resArchivo = $controller->procesarArchivo($_FILES[$campo], $campo);
+            if (isset($resArchivo['success'])) {
+                $datos[$campo] = $resArchivo['archivo'];
+            } else {
+                $archivoError = ($campo === 'ine_frontal' ? 'INE frontal: ' : 'INE posterior: ') . ($resArchivo['error'] ?? 'no se pudo subir');
+            }
         }
     }
-    
-    if (isset($_FILES['ine_posterior']) && $_FILES['ine_posterior']['size'] > 0) {
-        $result = $controller->procesarArchivo($_FILES['ine_posterior'], 'ine_posterior');
-        if (isset($result['success'])) {
-            $datos['ine_posterior'] = $result['archivo'];
-        }
-    }
-    
-    // Procesar firma digital desde canvas (base64)
+
+    // Firma digital desde canvas (base64)
     if (!empty($_POST['firma_digital'])) {
-        $result = $controller->procesarFirmaBase64($_POST['firma_digital']);
-        if (isset($result['success'])) {
-            $datos['firma_digital'] = $result['archivo'];
+        $resFirma = $controller->procesarFirmaBase64($_POST['firma_digital']);
+        if (isset($resFirma['success'])) {
+            $datos['firma_digital'] = $resFirma['archivo'];
+        } else {
+            $archivoError = 'Firma: ' . ($resFirma['error'] ?? 'no se pudo guardar');
         }
     }
-    
-    $result = $controller->crear($datos);
-    
-    if (isset($result['success'])) {
-        header('Location: index.php?success=1');
-        exit;
+
+    if ($archivoError !== '') {
+        $error = $archivoError;
     } else {
+        $result = $controller->crear($datos);
+
+        if (isset($result['success'])) {
+            header('Location: index.php?success=1');
+            exit;
+        }
         $error = $result['error'] ?? 'Error al crear simpatizante';
         $errores = $result['errores'] ?? [];
     }
@@ -82,64 +87,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $campanas = $campanaModel->obtenerTodas(1);
 
+
 $pageTitle = 'Nuevo Simpatizante';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <h2><i class="bi bi-person-plus-fill me-2"></i>Nuevo Simpatizante</h2>
-            <p class="text-muted">Registro de nuevo simpatizante</p>
+<div class="container-fluid p-0">
+    <div class="page-head">
+        <div>
+            <div class="eyebrow">Simpatizantes</div>
+            <h1>Nuevo simpatizante</h1>
+            <div class="meta"><span><i class="bi bi-person-plus"></i>Registro de un nuevo simpatizante</span></div>
         </div>
-        <div class="col-md-6 text-end">
-            <a href="index.php" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Volver
-            </a>
-        </div>
+        <a href="index.php" class="btn btn-soft"><i class="bi bi-arrow-left me-2"></i>Volver</a>
     </div>
-    
+
     <?php if ($error): ?>
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars($error); ?>
+            <?php if (!empty($errores)): ?>
+                <ul class="mb-0 mt-2"><?php foreach ($errores as $e): ?><li><?php echo htmlspecialchars($e); ?></li><?php endforeach; ?></ul>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
-    
-    <!-- OCR INE -->
-    <div class="card border-0 shadow-sm mb-4 bg-light">
-        <div class="card-body">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h5 class="mb-2"><i class="bi bi-camera-fill me-2"></i>Lectura OCR de INE</h5>
-                    <p class="text-muted mb-0 small">
-                        Sube una foto clara del INE frontal para extraer automáticamente los datos
-                    </p>
-                </div>
-                <div class="col-md-4">
-                    <input type="file" class="form-control" id="ine_ocr" accept="image/*" style="display: none;">
-                    <button type="button" class="btn btn-info w-100" onclick="document.getElementById('ine_ocr').click()">
-                        <i class="bi bi-upload me-2"></i>Subir INE para OCR
-                    </button>
-                </div>
-            </div>
-            <div id="ocr-loading" class="mt-3 text-center" style="display: none;">
-                <div class="spinner-border text-info" role="status">
-                    <span class="visually-hidden">Procesando...</span>
-                </div>
-                <p class="mt-2 text-muted">Procesando imagen con OCR...</p>
-            </div>
-            <div id="ocr-result" class="mt-3" style="display: none;"></div>
-        </div>
-    </div>
-    
+
     <!-- Formulario -->
-    <form method="POST" action="" enctype="multipart/form-data" id="formSimpatizante">
+    <form method="POST" action="" enctype="multipart/form-data" id="formSimpatizante"
+          data-api="<?php echo BASE_URL; ?>/public/api/verificar-calidad.php"
+          data-ver="<?php echo BASE_URL; ?>/public/simpatizantes/ver.php?id=">
+<?php echo csrf_field(); ?>
+        <div id="calidadPanel" class="mb-3" aria-live="polite"></div>
+
         <div class="row">
             <!-- Información Personal -->
             <div class="col-lg-6">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-person-fill me-2"></i>Información Personal</h5>
                     </div>
                     <div class="card-body">
@@ -189,8 +172,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Información Electoral -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-card-checklist me-2"></i>Información Electoral</h5>
                     </div>
                     <div class="card-body">
@@ -247,15 +230,26 @@ include __DIR__ . '/../../app/views/layouts/header.php';
             <!-- Contacto y Redes Sociales -->
             <div class="col-lg-6">
                 <!-- Contacto -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-telephone-fill me-2"></i>Información de Contacto</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
+                            <label class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control <?php echo isset($errores['telefono']) ? 'is-invalid' : ''; ?>"
+                                   name="telefono" pattern="[0-9]{10}" maxlength="16" inputmode="numeric"
+                                   value="<?php echo htmlspecialchars($_POST['telefono'] ?? ''); ?>">
+                            <?php if (isset($errores['telefono'])): ?>
+                                <div class="invalid-feedback"><?php echo $errores['telefono']; ?></div>
+                            <?php endif; ?>
+                            <small class="text-muted">10 dígitos; se quitan espacios, guiones y +52</small>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">WhatsApp</label>
                             <input type="tel" class="form-control <?php echo isset($errores['whatsapp']) ? 'is-invalid' : ''; ?>" 
-                                   name="whatsapp" pattern="[0-9]{10}" maxlength="10"
+                                   name="whatsapp" pattern="[0-9]{10}" maxlength="16" inputmode="numeric"
                                    value="<?php echo htmlspecialchars($_POST['whatsapp'] ?? ''); ?>">
                             <?php if (isset($errores['whatsapp'])): ?>
                                 <div class="invalid-feedback"><?php echo $errores['whatsapp']; ?></div>
@@ -276,37 +270,37 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Redes Sociales -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-share-fill me-2"></i>Redes Sociales</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-twitter text-info"></i> Twitter/X</label>
+                            <label class="form-label"><i class="bi bi-twitter text-muted"></i> Twitter/X</label>
                             <input type="text" class="form-control" name="twitter"
                                    value="<?php echo htmlspecialchars($_POST['twitter'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-instagram text-danger"></i> Instagram</label>
+                            <label class="form-label"><i class="bi bi-instagram text-muted"></i> Instagram</label>
                             <input type="text" class="form-control" name="instagram"
                                    value="<?php echo htmlspecialchars($_POST['instagram'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-facebook text-primary"></i> Facebook</label>
+                            <label class="form-label"><i class="bi bi-facebook text-muted"></i> Facebook</label>
                             <input type="text" class="form-control" name="facebook"
                                    value="<?php echo htmlspecialchars($_POST['facebook'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-youtube text-danger"></i> YouTube</label>
+                            <label class="form-label"><i class="bi bi-youtube text-muted"></i> YouTube</label>
                             <input type="text" class="form-control" name="youtube"
                                    value="<?php echo htmlspecialchars($_POST['youtube'] ?? ''); ?>">
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label"><i class="bi bi-tiktok"></i> TikTok</label>
+                            <label class="form-label"><i class="bi bi-tiktok text-muted"></i> TikTok</label>
                             <input type="text" class="form-control" name="tiktok"
                                    value="<?php echo htmlspecialchars($_POST['tiktok'] ?? ''); ?>">
                         </div>
@@ -314,8 +308,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                 </div>
                 
                 <!-- Ubicación y Archivos -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white">
+                <div class="card mb-3">
+                    <div class="card-header">
                         <h5 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>Ubicación y Documentos</h5>
                     </div>
                     <div class="card-body">
@@ -332,8 +326,8 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             </div>
                         </div>
                         
-                        <button type="button" class="btn btn-sm btn-info mb-3" onclick="obtenerUbicacion()">
-                            <i class="bi bi-geo-fill me-1"></i>Detectar Ubicación Actual (Obligatorio)
+                        <button type="button" class="btn btn-sm btn-soft mb-3" onclick="obtenerUbicacion()">
+                            <i class="bi bi-crosshair me-1"></i>Detectar ubicación actual (obligatorio)
                         </button>
                         <div id="ubicacion-alert" class="alert alert-warning d-none">
                             <i class="bi bi-exclamation-triangle me-2"></i>Debe detectar la ubicación antes de continuar
@@ -341,25 +335,27 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                         
                         <div class="mb-3">
                             <label class="form-label">INE Frontal</label>
-                            <input type="file" class="form-control" name="ine_frontal" accept="image/*">
+                            <input type="file" class="form-control" name="ine_frontal" accept="image/jpeg,image/png">
+                            <div class="form-text">JPG o PNG, máximo 5 MB.</div>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">INE Posterior</label>
-                            <input type="file" class="form-control" name="ine_posterior" accept="image/*">
+                            <input type="file" class="form-control" name="ine_posterior" accept="image/jpeg,image/png">
+                            <div class="form-text">JPG o PNG, máximo 5 MB.</div>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Firma Digital</label>
-                            <div class="border rounded p-2 bg-white">
-                                <canvas id="signatureCanvas" width="400" height="200" class="border" style="cursor: crosshair; touch-action: none;"></canvas>
+                            <div class="sign-box">
+                                <canvas id="signatureCanvas" width="800" height="320"></canvas>
                             </div>
                             <input type="hidden" name="firma_digital" id="firma_digital_data">
                             <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-secondary" onclick="clearSignature()">
-                                    <i class="bi bi-eraser-fill me-1"></i>Limpiar Firma
+                                <button type="button" class="btn btn-sm btn-soft" onclick="clearSignature()">
+                                    <i class="bi bi-eraser me-1"></i>Limpiar firma
                                 </button>
-                                <small class="text-muted ms-2">Firme con el mouse o dedo</small>
+                                <small class="text-muted ms-2">Firme con el mouse o con el dedo</small>
                             </div>
                         </div>
                         
@@ -368,38 +364,28 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             <select class="form-select" name="campana_id" required>
                                 <option value="">Seleccionar</option>
                                 <?php foreach ($campanas as $campana): ?>
-                                    <option value="<?php echo $campana['id']; ?>">
+                                    <option value="<?php echo (int)$campana['id']; ?>" <?php echo (isset($_POST['campana_id']) && $_POST['campana_id'] == $campana['id']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($campana['nombre']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="validado" id="validado">
-                            <label class="form-check-label" for="validado">
-                                Marcar como validado
-                            </label>
+                        <?php if (in_array($auth->obtenerRol(), ['super_admin', 'admin', 'coordinador'])): ?>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" name="validado" id="validado" <?php echo isset($_POST['validado']) ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="validado">Marcar como validado</label>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Botones -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <button type="submit" class="btn btn-gradient btn-lg px-5">
-                            <i class="bi bi-save-fill me-2"></i>Guardar Simpatizante
-                        </button>
-                        <a href="index.php" class="btn btn-secondary btn-lg px-5 ms-2">
-                            <i class="bi bi-x-circle me-2"></i>Cancelar
-                        </a>
-                    </div>
-                </div>
-            </div>
+        <!-- Acciones -->
+        <div class="action-bar">
+            <a href="index.php" class="btn btn-soft">Cancelar</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-2"></i>Guardar simpatizante</button>
         </div>
     </form>
 </div>
@@ -452,71 +438,37 @@ let lastY = 0;
 
 // Configurar canvas
 ctx.strokeStyle = '#000';
-ctx.lineWidth = 2;
+ctx.lineWidth = 3;
 ctx.lineCap = 'round';
 ctx.lineJoin = 'round';
 
-// Funciones de dibujo para mouse
-canvas.addEventListener('mousedown', (e) => {
-    isDrawing = true;
-    const rect = canvas.getBoundingClientRect();
-    lastX = e.clientX - rect.left;
-    lastY = e.clientY - rect.top;
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    if (!isDrawing) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    
-    lastX = x;
-    lastY = y;
-});
-
-canvas.addEventListener('mouseup', () => {
-    isDrawing = false;
-});
-
-canvas.addEventListener('mouseout', () => {
-    isDrawing = false;
-});
-
-// Funciones de dibujo para touch (móvil)
-canvas.addEventListener('touchstart', (e) => {
+// Dibujo con ratón, dedo o lápiz (el lienzo se adapta al ancho; se escala la posición)
+function posicion(ev) {
+    const r = canvas.getBoundingClientRect();
+    return {
+        x: (ev.clientX - r.left) * canvas.width / r.width,
+        y: (ev.clientY - r.top) * canvas.height / r.height
+    };
+}
+canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     isDrawing = true;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    lastX = touch.clientX - rect.left;
-    lastY = touch.clientY - rect.top;
+    canvas.setPointerCapture(e.pointerId);
+    const p = posicion(e);
+    lastX = p.x;
+    lastY = p.y;
 });
-
-canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
+canvas.addEventListener('pointermove', (e) => {
     if (!isDrawing) return;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-    
+    const p = posicion(e);
     ctx.beginPath();
     ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y);
+    ctx.lineTo(p.x, p.y);
     ctx.stroke();
-    
-    lastX = x;
-    lastY = y;
+    lastX = p.x;
+    lastY = p.y;
 });
-
-canvas.addEventListener('touchend', () => {
-    isDrawing = false;
-});
+['pointerup', 'pointercancel'].forEach((t) => canvas.addEventListener(t, () => { isDrawing = false; }));
 
 // Función para limpiar firma
 function clearSignature() {
@@ -533,75 +485,7 @@ const signaturePad = {
         return !pixelBuffer.some(color => color !== 0);
     }
 };
-
-// OCR de INE
-document.getElementById('ine_ocr').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Mostrar loading
-    document.getElementById('ocr-loading').style.display = 'block';
-    document.getElementById('ocr-result').style.display = 'none';
-    
-    // Crear FormData
-    const formData = new FormData();
-    formData.append('ine_imagen', file);
-    
-    // Enviar a API
-    fetch('<?php echo BASE_URL; ?>/public/api/procesar-ocr.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('ocr-loading').style.display = 'none';
-        
-        if (data.error) {
-            document.getElementById('ocr-result').innerHTML = 
-                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>' + 
-                data.error + '</div>';
-            document.getElementById('ocr-result').style.display = 'block';
-            return;
-        }
-        
-        // Llenar formulario con datos extraídos
-        if (data.datos) {
-            if (data.datos.nombre_completo) {
-                document.querySelector('[name="nombre_completo"]').value = data.datos.nombre_completo;
-            }
-            if (data.datos.curp) {
-                document.querySelector('[name="curp"]').value = data.datos.curp;
-            }
-            if (data.datos.clave_elector) {
-                document.querySelector('[name="clave_elector"]').value = data.datos.clave_elector;
-            }
-            if (data.datos.domicilio_completo) {
-                document.querySelector('[name="domicilio_completo"]').value = data.datos.domicilio_completo;
-            }
-            if (data.datos.seccion_electoral) {
-                document.querySelector('[name="seccion_electoral"]').value = data.datos.seccion_electoral;
-            }
-            if (data.datos.vigencia) {
-                document.querySelector('[name="vigencia"]').value = data.datos.vigencia;
-            }
-            if (data.datos.sexo) {
-                document.querySelector('[name="sexo"]').value = data.datos.sexo;
-            }
-            
-            document.getElementById('ocr-result').innerHTML = 
-                '<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i>' +
-                'Datos extraídos correctamente. Revise y complete la información faltante.</div>';
-            document.getElementById('ocr-result').style.display = 'block';
-        }
-    })
-    .catch(error => {
-        document.getElementById('ocr-loading').style.display = 'none';
-        document.getElementById('ocr-result').innerHTML = 
-            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>' +
-            'Error al procesar la imagen: ' + error.message + '</div>';
-        document.getElementById('ocr-result').style.display = 'block';
-    });
-});
 </script>
 
+<script src="<?php echo BASE_URL; ?>/public/js/calidad-datos.js?v=<?php echo @filemtime(__DIR__ . '/../js/calidad-datos.js'); ?>"></script>
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>

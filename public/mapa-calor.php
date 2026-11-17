@@ -25,6 +25,10 @@ if (!$auth->puedeVerTodasLasCampanas()) {
     $filtros['campana_id'] = $_GET['campana_id'];
 }
 
+if (!empty($_GET['estatus']) && in_array($_GET['estatus'], ['pendiente', 'validado', 'rechazado'], true)) {
+    $filtros['estatus'] = $_GET['estatus'];
+}
+
 if (!empty($_GET['fecha_inicio'])) {
     $filtros['fecha_inicio'] = $_GET['fecha_inicio'];
 }
@@ -46,6 +50,17 @@ if (!$auth->puedeVerTodasLasCampanas()) {
     }
 } else {
     $campanas = $campanaModel->obtenerTodas(1);
+}
+
+$descripcionFiltros = 'Campaña: ';
+$nombreCampanaMapa = 'todas';
+if (!empty($filtros['campana_id'])) {
+    foreach ($campanas as $c) { if ($c && $c['id'] == $filtros['campana_id']) { $nombreCampanaMapa = $c['nombre']; } }
+}
+$descripcionFiltros .= $nombreCampanaMapa;
+if (!empty($filtros['estatus'])) { $descripcionFiltros .= ' · Estado: ' . $filtros['estatus']; }
+if (!empty($filtros['fecha_inicio']) || !empty($filtros['fecha_fin'])) {
+    $descripcionFiltros .= ' · ' . ($filtros['fecha_inicio'] ?? '…') . ' a ' . ($filtros['fecha_fin'] ?? '…');
 }
 
 $pageTitle = 'Mapa de Calor';
@@ -131,7 +146,7 @@ $topSeccionTotal = $topSeccion !== null ? $porSeccion[$topSeccion] : 0;
         <div class="card-body">
             <form method="GET" action="" class="row g-3 align-items-end">
                 <?php if ($auth->puedeVerTodasLasCampanas()): ?>
-                <div class="col-md-4">
+                <div class="col-lg-3 col-md-6">
                     <label class="form-label small text-muted mb-1">Campaña</label>
                     <select class="form-select" name="campana_id">
                         <option value="">Todas las campañas</option>
@@ -144,18 +159,28 @@ $topSeccionTotal = $topSeccion !== null ? $porSeccion[$topSeccion] : 0;
                     </select>
                 </div>
                 <?php endif; ?>
-                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label small text-muted mb-1">Estado</label>
+                    <select class="form-select" name="estatus">
+                        <option value="">Todos</option>
+                        <?php foreach (['validado' => 'Validados', 'pendiente' => 'Pendientes', 'rechazado' => 'Rechazados'] as $k => $t): ?>
+                            <option value="<?php echo $k; ?>" <?php echo (($filtros['estatus'] ?? '') === $k) ? 'selected' : ''; ?>><?php echo $t; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-6">
                     <label class="form-label small text-muted mb-1">Fecha inicio</label>
                     <input type="date" class="form-control" name="fecha_inicio" value="<?php echo htmlspecialchars($_GET['fecha_inicio'] ?? ''); ?>">
                 </div>
-                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-3' : 'col-md-4'; ?>">
+                <div class="col-lg-2 col-md-6">
                     <label class="form-label small text-muted mb-1">Fecha fin</label>
                     <input type="date" class="form-control" name="fecha_fin" value="<?php echo htmlspecialchars($_GET['fecha_fin'] ?? ''); ?>">
                 </div>
-                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-md-2' : 'col-md-4'; ?>">
+                <div class="col-lg-3 col-md-12">
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary flex-fill"><i class="bi bi-funnel me-1"></i>Filtrar</button>
-                        <a href="mapa-calor.php" class="btn btn-soft flex-fill" title="Limpiar filtros"><i class="bi bi-arrow-counterclockwise"></i></a>
+                        <a href="mapa-calor.php" class="btn btn-soft" title="Limpiar filtros"><i class="bi bi-arrow-counterclockwise"></i></a>
+                        <button type="button" class="btn btn-soft" id="btnImagen" title="Descargar la vista actual del mapa como imagen"><i class="bi bi-image me-1"></i>Imagen</button>
                     </div>
                 </div>
             </form>
@@ -182,7 +207,8 @@ $topSeccionTotal = $topSeccion !== null ? $porSeccion[$topSeccion] : 0;
     const mapa = L.map('mapa', { zoomControl: true, scrollWheelZoom: true }).setView([23.6, -102.5], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 18
+        maxZoom: 18,
+        crossOrigin: true
     }).addTo(mapa);
 
     // Agrupar por coordenadas cercanas (~11 m)
@@ -341,6 +367,48 @@ $topSeccionTotal = $topSeccion !== null ? $porSeccion[$topSeccion] : 0;
     legend.addTo(mapa);
 
     actualizarCapas();
+
+    // ---- Descargar la vista actual como imagen (con el título, los filtros y la fecha)
+    (function () {
+        const btn = document.getElementById('btnImagen');
+        if (!btn) return;
+        function cargarLib() {
+            return new Promise(function (ok, fallo) {
+                if (window.html2canvas) { ok(); return; }
+                const sc = document.createElement('script');
+                sc.src = '<?php echo BASE_URL; ?>/public/vendor/pdf/html2canvas.min.js';
+                sc.onload = ok; sc.onerror = function () { fallo(new Error('No se pudo cargar la librería de imágenes')); };
+                document.head.appendChild(sc);
+            });
+        }
+        btn.addEventListener('click', function () {
+            const etiqueta = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            cargarLib().then(function () {
+                return html2canvas(document.getElementById('mapa'), { useCORS: true, backgroundColor: '#ffffff', scale: 2, logging: false });
+            }).then(function (lienzo) {
+                // Franja con el título y los filtros sobre la imagen del mapa
+                const franja = 64 * 2;
+                const salida = document.createElement('canvas');
+                salida.width = lienzo.width; salida.height = lienzo.height + franja;
+                const c = salida.getContext('2d');
+                c.fillStyle = '#111111'; c.fillRect(0, 0, salida.width, franja);
+                c.fillStyle = '#ff8000'; c.fillRect(0, franja - 6, salida.width, 6);
+                c.fillStyle = '#ffffff'; c.font = 'bold 30px sans-serif'; c.fillText('Mapa de calor de simpatizantes', 28, 44);
+                c.fillStyle = '#f0e6da'; c.font = '20px sans-serif';
+                c.fillText(<?php echo json_encode($descripcionFiltros . ' · ' . date('d/m/Y H:i')); ?> + ' · ' + <?php echo json_encode(number_format($puntosValidos) . ' ubicaciones'); ?>, 28, 88);
+                c.drawImage(lienzo, 0, franja);
+                salida.toBlob(function (blob) {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob); a.download = 'mapa_calor_' + new Date().toISOString().slice(0, 10) + '.png';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+                }, 'image/png');
+            }).catch(function (e) {
+                alert('No se pudo generar la imagen: ' + e.message);
+            }).then(function () { btn.disabled = false; btn.innerHTML = etiqueta; });
+        });
+    })();
 })();
 </script>
 

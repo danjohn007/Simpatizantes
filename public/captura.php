@@ -154,6 +154,10 @@ $nombre = $_SESSION['nombre_completo'] ?? ($_SESSION['nombre'] ?? '');
                         <input class="form-control" type="tel" name="whatsapp" id="whatsapp" inputmode="numeric" maxlength="16" placeholder="10 dígitos">
                     </div>
                 </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="consentimiento" id="consentimiento" value="1" style="width:1.4em;height:1.4em">
+                    <label class="form-check-label ms-1" for="consentimiento" style="font-weight:500">La persona aceptó recibir mensajes de la campaña</label>
+                </div>
                 <div class="mb-1">
                     <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#masDatos"><i class="bi bi-plus-circle me-1"></i>Más datos (CURP, clave, correo…)</button>
                 </div>

@@ -6,108 +6,71 @@
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/Database.php';
 require_once __DIR__ . '/../../app/controllers/AuthController.php';
-require_once __DIR__ . '/../../app/models/Simpatizante.php';
 require_once __DIR__ . '/../../app/models/Campana.php';
+require_once __DIR__ . '/../../app/helpers/security.php';
+require_once __DIR__ . '/../../app/services/AnaliticaService.php';
 
 $auth = new AuthController();
 $auth->requiereAutenticacion();
 
-$simpatizanteModel = new Simpatizante();
 $campanaModel = new Campana();
+$puedeVerTodas = $auth->puedeVerTodasLasCampanas();
+$esCapturista = $auth->obtenerRol() === 'capturista';
 
-// Procesar filtros
-$filtros = [];
+// Filtros validados y limitados al alcance del usuario (campaña propia, o solo lo suyo si es capturista)
+$filtros = AnaliticaService::filtrosDeGet($_GET, 30);
+$filtros = AnaliticaService::alcance($auth, $filtros);
 
-// Filtrar por campaña del usuario si no es admin
-if (!$auth->puedeVerTodasLasCampanas()) {
-    $filtros['campana_id'] = $auth->obtenerCampanaId();
-} elseif (!empty($_GET['campana_id'])) {
-    $filtros['campana_id'] = $_GET['campana_id'];
-}
-
-if (!empty($_GET['fecha_inicio'])) {
-    $filtros['fecha_inicio'] = $_GET['fecha_inicio'];
-} else {
-    $filtros['fecha_inicio'] = date('Y-m-d', strtotime('-30 days'));
-}
-
-if (!empty($_GET['fecha_fin'])) {
-    $filtros['fecha_fin'] = $_GET['fecha_fin'];
-} else {
-    $filtros['fecha_fin'] = date('Y-m-d');
-}
-
-// Validar fechas (formato AAAA-MM-DD) y su orden
-$esFecha = function ($f) {
-    $d = DateTime::createFromFormat('Y-m-d', (string)$f);
-    return $d && $d->format('Y-m-d') === $f;
-};
-if (!$esFecha($filtros['fecha_inicio'])) { $filtros['fecha_inicio'] = date('Y-m-d', strtotime('-30 days')); }
-if (!$esFecha($filtros['fecha_fin'])) { $filtros['fecha_fin'] = date('Y-m-d'); }
-if ($filtros['fecha_inicio'] > $filtros['fecha_fin']) {
-    list($filtros['fecha_inicio'], $filtros['fecha_fin']) = [$filtros['fecha_fin'], $filtros['fecha_inicio']];
-}
-if (!empty($filtros['campana_id'])) { $filtros['campana_id'] = (int)$filtros['campana_id']; }
-
-// Obtener datos
-$estatsPorSeccion = $simpatizanteModel->obtenerEstadisticasPorSeccion($filtros);
-$estatsPorCapturista = $simpatizanteModel->obtenerEstadisticasPorCapturista($filtros);
+$analitica = new AnaliticaService();
+$comp = $analitica->comparativo($filtros);
+$resumen = $comp['actual'];
+$estatsPorDia = $analitica->porDia($filtros);
+$estatsPorSeccion = $analitica->porSeccion($filtros);
+$estatsPorCapturista = $analitica->porCapturista($filtros, 10);
+$estatsPorCiudad = $analitica->porCiudad($filtros, 10);
+$estatus = $analitica->estatus($filtros);
+$temas = $analitica->porTema($filtros);
+$ciudadesDisp = $analitica->ciudades($filtros);
 $campanas = $campanaModel->obtenerTodas(1);
-
-// Estadísticas por día (últimos 30 días)
-$db = Database::getInstance();
-$whereClauses = [];
-$params = [];
-
-if (!empty($filtros['campana_id'])) {
-    $whereClauses[] = "campana_id = ?";
-    $params[] = $filtros['campana_id'];
-}
-
-$whereClause = '';
-if (!empty($whereClauses)) {
-    // Cuando ya hay condiciones, incluir la cláusula AND para el rango de fechas
-    $whereClause = 'WHERE ' . implode(' AND ', $whereClauses) . ' AND DATE(created_at) BETWEEN ? AND ?';
-} else {
-    // No hay condiciones previas: la cláusula WHERE sólo debe incluir el filtro de fechas
-    $whereClause = 'WHERE DATE(created_at) BETWEEN ? AND ?';
-}
-
-$sql = "SELECT DATE(created_at) as fecha, COUNT(*) as total FROM simpatizantes $whereClause GROUP BY DATE(created_at) ORDER BY fecha ASC";
-
-$params[] = $filtros['fecha_inicio'];
-$params[] = $filtros['fecha_fin'];
-
-$estatsPorDia = $db->query($sql, $params);
 
 $pageTitle = 'Reportes';
 include __DIR__ . '/../../app/views/layouts/header.php';
 ?>
 
 <?php
-// ---------- Indicadores del periodo (calculados con los datos reales) ----------
-$totalPeriodo = 0;
+// ---------- Indicadores del periodo (datos reales, comparados con el periodo anterior) ----------
+$totalPeriodo = $resumen['total'];
 $mejorDia = null;
 foreach ($estatsPorDia as $r) {
     $t = (int)$r['total'];
-    $totalPeriodo += $t;
     if ($mejorDia === null || $t > $mejorDia['total']) { $mejorDia = ['fecha' => $r['fecha'], 'total' => $t]; }
 }
-$diasPeriodo   = max(1, (int)((strtotime($filtros['fecha_fin']) - strtotime($filtros['fecha_inicio'])) / 86400) + 1);
-$promedioDia   = round($totalPeriodo / $diasPeriodo, 1);
+$diasPeriodo   = $comp['dias'];
+$promedioDia   = round($totalPeriodo / max(1, $diasPeriodo), 1);
 $maxSeccion    = 0; foreach (array_slice($estatsPorSeccion, 0, 10) as $s) { $maxSeccion = max($maxSeccion, (int)$s['total']); }
 $maxCapturista = 0; foreach (array_slice($estatsPorCapturista, 0, 10) as $c) { $maxCapturista = max($maxCapturista, (int)$c['total']); }
+$maxCiudad     = 0; foreach ($estatsPorCiudad as $c) { $maxCiudad = max($maxCiudad, (int)$c['total']); }
 
 $nombreCampana = '';
 if (!empty($filtros['campana_id'])) {
     foreach ($campanas as $c) { if ($c['id'] == $filtros['campana_id']) { $nombreCampana = $c['nombre']; break; } }
 }
-$rango = function ($dias) use ($filtros) {
-    $p = ['fecha_inicio' => date('Y-m-d', strtotime("-{$dias} days")), 'fecha_fin' => date('Y-m-d')];
-    if (!empty($filtros['campana_id'])) { $p['campana_id'] = $filtros['campana_id']; }
-    return '?' . http_build_query($p);
+// Enlaces de rango rápido: conservan campaña, municipio, sección y estado
+$conservar = [];
+foreach (['campana_id' => 'campana_id', 'ciudad' => 'ciudad', 'seccion_electoral' => 'seccion', 'estatus' => 'estatus'] as $k => $get) {
+    if (!empty($filtros[$k]) && !($k === 'campana_id' && !$puedeVerTodas)) { $conservar[$get] = $filtros[$k]; }
+}
+$rango = function ($dias) use ($conservar) {
+    return '?' . http_build_query($conservar + ['fecha_inicio' => date('Y-m-d', strtotime('-' . ($dias - 1) . ' days')), 'fecha_fin' => date('Y-m-d')]);
 };
 $etiquetaPeriodo = date('d/m/Y', strtotime($filtros['fecha_inicio'])) . ' – ' . date('d/m/Y', strtotime($filtros['fecha_fin']));
+$delta = function ($v) {
+    if ($v === null) { return '<span class="text-muted">sin periodo anterior para comparar</span>'; }
+    $sube = $v >= 0;
+    return '<span style="color:' . ($sube ? '#2f6b4a' : '#8a2f25') . ';font-weight:600"><i class="bi bi-arrow-' . ($sube ? 'up' : 'down') . '-right"></i> '
+         . ($sube ? '+' : '') . number_format($v, 1) . '%</span> <span class="text-muted">vs periodo anterior</span>';
+};
+$totEstatus = max(1, array_sum($estatus));
 ?>
 <div class="container-fluid p-0">
     <div class="page-head">
@@ -119,15 +82,26 @@ $etiquetaPeriodo = date('d/m/Y', strtotime($filtros['fecha_inicio'])) . ' – ' 
                 <span><i class="bi bi-megaphone"></i><?php echo $nombreCampana !== '' ? htmlspecialchars($nombreCampana) : 'Todas las campañas'; ?></span>
             </div>
         </div>
-        <button class="btn btn-primary" onclick="exportarPDF()"><i class="bi bi-file-pdf-fill me-2"></i>Exportar en PDF</button>
+        <div class="d-flex flex-wrap gap-2">
+            <?php if (!$esCapturista): ?>
+            <a class="btn btn-soft" target="_blank" rel="noopener" href="semanal.php<?php echo !empty($filtros['campana_id']) && $puedeVerTodas ? '?campana_id=' . (int)$filtros['campana_id'] : ''; ?>"
+               title="PDF de los últimos 7 días comparado con los 7 anteriores"><i class="bi bi-calendar-week me-2"></i>Reporte semanal</a>
+            <form method="POST" action="semanal.php" class="d-inline">
+                <?php echo csrf_field(); ?>
+                <?php if (!empty($filtros['campana_id']) && $puedeVerTodas): ?><input type="hidden" name="campana_id" value="<?php echo (int)$filtros['campana_id']; ?>"><?php endif; ?>
+                <button class="btn btn-soft" title="Recibir el reporte semanal en su correo"><i class="bi bi-envelope me-2"></i>Enviármelo</button>
+            </form>
+            <?php endif; ?>
+            <button class="btn btn-primary" onclick="exportarPDF()"><i class="bi bi-file-pdf-fill me-2"></i>Exportar esta vista</button>
+        </div>
     </div>
 
     <!-- Filtros -->
     <div class="card mb-3">
         <div class="card-body">
             <form method="GET" action="" class="row g-3 align-items-end">
-                <?php if ($auth->puedeVerTodasLasCampanas()): ?>
-                <div class="col-lg-4">
+                <?php if ($puedeVerTodas): ?>
+                <div class="col-lg-3 col-md-6">
                     <label class="form-label small text-muted mb-1">Campaña</label>
                     <select class="form-select" name="campana_id">
                         <option value="">Todas las campañas</option>
@@ -139,25 +113,48 @@ $etiquetaPeriodo = date('d/m/Y', strtotime($filtros['fecha_inicio'])) . ' – ' 
                     </select>
                 </div>
                 <?php endif; ?>
-                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-lg-3 col-md-6' : 'col-md-5'; ?>">
+                <div class="col-lg-2 col-md-6">
                     <label class="form-label small text-muted mb-1">Desde</label>
                     <input type="date" class="form-control" name="fecha_inicio" value="<?php echo htmlspecialchars($filtros['fecha_inicio']); ?>">
                 </div>
-                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-lg-3 col-md-6' : 'col-md-5'; ?>">
+                <div class="col-lg-2 col-md-6">
                     <label class="form-label small text-muted mb-1">Hasta</label>
                     <input type="date" class="form-control" name="fecha_fin" value="<?php echo htmlspecialchars($filtros['fecha_fin']); ?>">
                 </div>
-                <div class="<?php echo $auth->puedeVerTodasLasCampanas() ? 'col-lg-2' : 'col-md-2'; ?>">
-                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel me-2"></i>Filtrar</button>
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label small text-muted mb-1">Municipio</label>
+                    <select class="form-select" name="ciudad">
+                        <option value="">Todos</option>
+                        <?php foreach ($ciudadesDisp as $ciudad): ?>
+                            <option value="<?php echo htmlspecialchars($ciudad); ?>" <?php echo (($filtros['ciudad'] ?? '') === $ciudad) ? 'selected' : ''; ?>><?php echo htmlspecialchars($ciudad); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-lg-1 col-md-6">
+                    <label class="form-label small text-muted mb-1">Sección</label>
+                    <input type="text" class="form-control" name="seccion" inputmode="numeric" maxlength="4" placeholder="0123" value="<?php echo htmlspecialchars($filtros['seccion_electoral'] ?? ''); ?>">
+                </div>
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label small text-muted mb-1">Estado</label>
+                    <select class="form-select" name="estatus">
+                        <option value="">Todos</option>
+                        <?php foreach (['pendiente' => 'Pendiente', 'validado' => 'Validado', 'rechazado' => 'Rechazado'] as $k => $t): ?>
+                            <option value="<?php echo $k; ?>" <?php echo (($filtros['estatus'] ?? '') === $k) ? 'selected' : ''; ?>><?php echo $t; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-12 d-flex flex-wrap align-items-center gap-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-2"></i>Filtrar</button>
+                    <a href="index.php" class="btn btn-soft">Limpiar</a>
+                    <div class="quick-ranges ms-lg-2">
+                        <span class="text-muted small me-2">Rango rápido:</span>
+                        <a href="<?php echo $rango(7); ?>">7 días</a>
+                        <a href="<?php echo $rango(30); ?>">30 días</a>
+                        <a href="<?php echo $rango(90); ?>">90 días</a>
+                        <a href="<?php echo $rango(365); ?>">12 meses</a>
+                    </div>
                 </div>
             </form>
-            <div class="quick-ranges mt-3">
-                <span class="text-muted small me-2">Rango rápido:</span>
-                <a href="<?php echo $rango(7); ?>">7 días</a>
-                <a href="<?php echo $rango(30); ?>">30 días</a>
-                <a href="<?php echo $rango(90); ?>">90 días</a>
-                <a href="<?php echo $rango(365); ?>">12 meses</a>
-            </div>
         </div>
     </div>
 
@@ -167,25 +164,25 @@ $etiquetaPeriodo = date('d/m/Y', strtotime($filtros['fecha_inicio'])) . ' – ' 
             <div class="card kpi"><i class="bi bi-person-plus ico"></i>
                 <div class="label">Registros en el periodo</div>
                 <div class="value"><?php echo number_format($totalPeriodo); ?></div>
-                <div class="hint"><?php echo $diasPeriodo; ?> días analizados</div></div>
+                <div class="hint"><?php echo $delta($comp['var_total']); ?></div></div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card kpi"><i class="bi bi-patch-check ico"></i>
+                <div class="label">Validados</div>
+                <div class="value"><?php echo number_format($resumen['validados']); ?></div>
+                <div class="hint"><?php echo $resumen['pct_validados']; ?>% del periodo · <?php echo $delta($comp['var_validados']); ?></div></div>
         </div>
         <div class="col-xl-3 col-md-6">
             <div class="card kpi"><i class="bi bi-speedometer2 ico"></i>
                 <div class="label">Promedio diario</div>
                 <div class="value"><?php echo number_format($promedioDia, 1); ?></div>
-                <div class="hint">Registros por día</div></div>
-        </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card kpi"><i class="bi bi-trophy ico"></i>
-                <div class="label">Mejor día</div>
-                <div class="value"><?php echo $mejorDia ? number_format($mejorDia['total']) : '—'; ?></div>
-                <div class="hint"><?php echo $mejorDia ? date('d/m/Y', strtotime($mejorDia['fecha'])) : 'Sin registros'; ?></div></div>
+                <div class="hint">Mejor día: <?php echo $mejorDia ? number_format($mejorDia['total']) . ' (' . date('d/m', strtotime($mejorDia['fecha'])) . ')' : '—'; ?></div></div>
         </div>
         <div class="col-xl-3 col-md-6">
             <div class="card kpi"><i class="bi bi-geo-alt ico"></i>
                 <div class="label">Secciones con registros</div>
-                <div class="value"><?php echo number_format(count($estatsPorSeccion)); ?></div>
-                <div class="hint"><?php echo number_format(count($estatsPorCapturista)); ?> capturistas activos</div></div>
+                <div class="value"><?php echo number_format($resumen['secciones']); ?></div>
+                <div class="hint"><?php echo number_format($resumen['capturistas']); ?> capturistas activos</div></div>
         </div>
     </div>
 
@@ -212,6 +209,64 @@ $etiquetaPeriodo = date('d/m/Y', strtotime($filtros['fecha_inicio'])) . ' – ' 
             </div>
         </div>
     </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-patch-check me-2"></i>Estado de validación</h5></div>
+                <div class="card-body">
+                    <div class="d-flex rounded overflow-hidden mb-3" style="height:18px;background:#ece6df" role="img" aria-label="Distribución por estado de validación">
+                        <?php foreach ([['validado', '#2f6b4a'], ['pendiente', '#ff8000'], ['rechazado', '#8a2f25']] as $e): ?>
+                            <div style="width:<?php echo round(100 * ($estatus[$e[0]] ?? 0) / $totEstatus, 2); ?>%;background:<?php echo $e[1]; ?>"></div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="row text-center g-2">
+                        <?php foreach ([['validado', 'Validados', '#2f6b4a'], ['pendiente', 'Pendientes', '#b85400'], ['rechazado', 'Rechazados', '#8a2f25']] as $e): ?>
+                            <div class="col-4"><div class="fs-4 fw-bold" style="color:<?php echo $e[2]; ?>"><?php echo number_format($estatus[$e[0]] ?? 0); ?></div>
+                                <div class="small text-muted"><?php echo $e[1]; ?> · <?php echo round(100 * ($estatus[$e[0]] ?? 0) / $totEstatus); ?>%</div></div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-buildings me-2"></i>Municipios con más registros</h5></div>
+                <div class="card-body">
+                    <?php if (empty($estatsPorCiudad)): ?><p class="text-muted mb-0">Sin registros en el periodo.</p><?php endif; ?>
+                    <?php foreach (array_slice($estatsPorCiudad, 0, 6) as $i => $c): ?>
+                        <div class="rank-row">
+                            <span class="pos"><?php echo $i + 1; ?></span>
+                            <div>
+                                <div class="name"><?php echo htmlspecialchars($c['ciudad']); ?></div>
+                                <div class="bar"><span style="width: <?php echo $maxCiudad > 0 ? round(($c['total'] / $maxCiudad) * 100) : 0; ?>%"></span></div>
+                            </div>
+                            <span class="num"><?php echo number_format($c['total']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <?php if (!empty($temas)): ?>
+    <div class="card mb-3">
+        <div class="card-header"><h5 class="mb-0"><i class="bi bi-chat-heart me-2"></i>Lo que piden los vecinos</h5></div>
+        <div class="card-body">
+            <?php foreach (array_slice($temas, 0, 8) as $i => $t): ?>
+                <div class="rank-row">
+                    <span class="pos"><?php echo $i + 1; ?></span>
+                    <div>
+                        <div class="name"><?php echo htmlspecialchars($t['etiqueta']); ?></div>
+                        <div class="bar"><span style="width: <?php echo (int)$t['pct']; ?>%"></span></div>
+                    </div>
+                    <span class="num"><?php echo number_format($t['total']); ?><small class="d-block text-muted fw-normal" style="font-size:.7rem"><?php echo (int)$t['pct']; ?>% de quienes respondieron</small></span>
+                </div>
+            <?php endforeach; ?>
+            <p class="text-muted small mt-2 mb-0">Sale de la pregunta "¿qué le gustaría mejorar en su colonia?" que se hace al registrar a cada persona desde la app.</p>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Rankings -->
     <div class="row g-3">
@@ -247,7 +302,7 @@ $etiquetaPeriodo = date('d/m/Y', strtotime($filtros['fecha_inicio'])) . ' – ' 
                                 <div class="name"><?php echo htmlspecialchars($capturista['nombre_completo']); ?></div>
                                 <div class="bar"><span style="width: <?php echo $maxCapturista > 0 ? round(($capturista['total'] / $maxCapturista) * 100) : 0; ?>%"></span></div>
                             </div>
-                            <span class="num"><?php echo number_format($capturista['total']); ?></span>
+                            <span class="num"><?php echo number_format($capturista['total']); ?><small class="d-block text-muted fw-normal" style="font-size:.7rem"><?php echo $capturista['pct']; ?>% valid.</small></span>
                         </div>
                     <?php endforeach; ?>
                 </div>

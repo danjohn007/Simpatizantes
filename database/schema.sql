@@ -80,6 +80,13 @@ CREATE TABLE IF NOT EXISTS simpatizantes (
     motivo_rechazo VARCHAR(255) NULL,
     duplicado TINYINT(1) DEFAULT 0,
     uuid_cliente CHAR(36) NULL,
+    consentimiento TINYINT(1) NULL,
+    consentimiento_fecha DATETIME NULL,
+    baja_comunicacion TINYINT(1) NOT NULL DEFAULT 0,
+    baja_token CHAR(32) NULL,
+    ultimo_contacto DATETIME NULL,
+    colonia VARCHAR(100) NULL,
+    comentario_colonia VARCHAR(500) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (campana_id) REFERENCES campanas(id) ON DELETE SET NULL,
@@ -92,6 +99,9 @@ CREATE TABLE IF NOT EXISTS simpatizantes (
     INDEX idx_estatus (estatus_validacion),
     INDEX idx_seccion_nombre (seccion_electoral, nombre_completo(60)),
     UNIQUE INDEX uq_uuid_cliente (uuid_cliente),
+    UNIQUE INDEX uq_baja_token (baja_token),
+    INDEX idx_ultimo_contacto (ultimo_contacto),
+    INDEX idx_consentimiento (consentimiento, baja_comunicacion),
     INDEX idx_seccion (seccion_electoral),
     INDEX idx_campana (campana_id),
     INDEX idx_capturista (capturista_id),
@@ -246,3 +256,55 @@ INSERT INTO logs_auditoria (usuario_id, accion, tabla_afectada, registro_id, ip_
 (5, 'crear_simpatizante', 'simpatizantes', 1, '192.168.1.100', 'Mozilla/5.0'),
 (5, 'crear_simpatizante', 'simpatizantes', 2, '192.168.1.100', 'Mozilla/5.0'),
 (6, 'crear_simpatizante', 'simpatizantes', 3, '192.168.1.101', 'Mozilla/5.0');
+
+-- Sprint 5: comunicación (las plantillas iniciales se cargan con database/sprint5_comunicacion.sql)
+CREATE TABLE IF NOT EXISTS contactos_simpatizante (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    simpatizante_id INT NOT NULL,
+    usuario_id INT NULL,
+    canal VARCHAR(20) NOT NULL,
+    resultado VARCHAR(30) NOT NULL,
+    nota VARCHAR(500) NULL,
+    plantilla VARCHAR(50) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_simpatizante (simpatizante_id, created_at),
+    INDEX idx_usuario (usuario_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS plantillas_mensaje (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    clave VARCHAR(50) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    canal VARCHAR(20) NOT NULL,
+    asunto VARCHAR(150) NULL,
+    cuerpo TEXT NOT NULL,
+    updated_by INT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_clave (clave)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- App móvil: sesiones por dispositivo y temas de colonia
+CREATE TABLE IF NOT EXISTS app_sesiones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    dispositivo VARCHAR(120) NULL,
+    plataforma VARCHAR(20) NULL,
+    app_version VARCHAR(20) NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME NULL,
+    expires_at DATETIME NOT NULL,
+    revoked_at DATETIME NULL,
+    UNIQUE KEY uq_token_hash (token_hash),
+    INDEX idx_usuario (usuario_id, revoked_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS simpatizante_temas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    simpatizante_id INT NOT NULL,
+    tema VARCHAR(30) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_simp_tema (simpatizante_id, tema),
+    INDEX idx_tema (tema)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

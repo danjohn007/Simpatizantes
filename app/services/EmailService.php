@@ -74,6 +74,48 @@ class EmailService {
     }
     
     /**
+     * Envía un correo HTML con un archivo adjunto (por ejemplo, el reporte semanal en PDF).
+     * Se usa desde tareas programadas, así que no hay prisa: el timeout es holgado.
+     *
+     * @return bool
+     */
+    public function sendEmailWithAttachment($to, $subject, $htmlBody, $nombreAdjunto, $contenidoAdjunto, $mime = 'application/pdf', $toName = '') {
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        $limite = 'rpt_' . bin2hex(random_bytes(12));
+        $asuntoCodificado = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+        $de = $this->from_name !== '' ? '=?UTF-8?B?' . base64_encode($this->from_name) . '?= <' . $this->from_email . '>' : $this->from_email;
+        $nombreSeguro = preg_replace('/[^A-Za-z0-9._-]/', '_', $nombreAdjunto);
+
+        $headers = "MIME-Version: 1.0\r\n";
+        $headers .= "From: $de\r\n";
+        $headers .= "Reply-To: {$this->from_email}\r\n";
+        $headers .= "Content-Type: multipart/mixed; boundary=\"$limite\"\r\n";
+
+        $cuerpo = "--$limite\r\n";
+        $cuerpo .= "Content-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n";
+        $cuerpo .= chunk_split(base64_encode($htmlBody)) . "\r\n";
+        $cuerpo .= "--$limite\r\n";
+        $cuerpo .= "Content-Type: $mime; name=\"$nombreSeguro\"\r\nContent-Transfer-Encoding: base64\r\n";
+        $cuerpo .= "Content-Disposition: attachment; filename=\"$nombreSeguro\"\r\n\r\n";
+        $cuerpo .= chunk_split(base64_encode($contenidoAdjunto)) . "\r\n";
+        $cuerpo .= "--$limite--";
+
+        ini_set('SMTP', $this->smtp_host);
+        ini_set('smtp_port', $this->smtp_port);
+        ini_set('sendmail_from', $this->from_email);
+        ini_set('default_socket_timeout', 30);
+
+        $enviado = @mail($to, $asuntoCodificado, $cuerpo, $headers);
+        if (!$enviado) {
+            $e = error_get_last();
+            error_log('Correo con adjunto no enviado a ' . $to . ': ' . ($e['message'] ?? 'sin detalle'));
+        }
+        return $enviado;
+    }
+
+    /**
      * Envía email de forma optimizada con timeout más bajo
      */
     public function sendEmailFast($to, $subject, $body, $toName = '') {

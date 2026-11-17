@@ -97,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'latitud' => $_POST['latitud'] ?? '',
             'longitud' => $_POST['longitud'] ?? '',
             'metodo_captura' => 'web',
+            'consentimiento' => isset($_POST['consentimiento']) ? 1 : 0,
             'validado' => 0
         ];
         
@@ -323,6 +324,10 @@ $terminos = $terminosConfig ? $terminosConfig['valor'] : 'No se han configurado 
                         <div class="form-check mt-3">
                             <input class="form-check-input" type="checkbox" name="terminos" value="aceptado" id="terminos" required>
                             <label class="form-check-label" for="terminos">Acepto los términos y condiciones <span class="text-danger">*</span></label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" name="consentimiento" value="1" id="consentimiento" <?php echo isset($_POST['consentimiento']) ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="consentimiento">Acepto recibir mensajes por WhatsApp, correo o llamada con información de la campaña (opcional; puedo darme de baja en cualquier momento)</label>
                         </div>
                     </div>
 

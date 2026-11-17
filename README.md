@@ -372,3 +372,36 @@ Ejecute **una vez** `database/sprint3_campo.sql` (después del de Sprint 2). Es 
   ("Agregar a pantalla de inicio"). Requiere HTTPS.
 - **Metas y zonas** (`/public/campo/`): metas por campaña, capturista o sección con avance en vivo, y secciones asignadas a cada capturista.
   Si un capturista registra fuera de sus secciones, el sistema le avisa (no bloquea).
+
+## Análisis y rendimiento (Sprint 4)
+
+Ejecute **una vez** `database/sprint4_analisis.sql` (después de los de Sprint 2 y 3). Es repetible y no borra datos.
+
+- **Reportes y Dashboard:** filtros por campaña, fechas, municipio, sección y estado; comparativo contra el periodo anterior;
+  ranking de capturistas con % de validación. Cada rol ve solo su alcance (campaña propia; el capturista, lo suyo).
+- **Reporte semanal en PDF:** botón en Reportes (descargar o recibirlo por correo). Para el envío automático active
+  "Reporte semanal por correo" en Configuración y programe en cPanel > Tareas Cron: `0 7 * * 1  php /ruta/al/proyecto/cron/reporte_semanal.php`.
+  Cada coordinador/candidato recibe el de su campaña; los administradores, uno consolidado.
+- **Mapa de calor:** filtro por estado de validación y botón "Imagen" para descargar la vista con título y filtros.
+- **Rendimiento:** índices compuestos, rangos de fecha que aprovechan índices y caché de consultas (2 min, se invalida al cambiar datos) en `storage/cache`.
+
+## Comunicación (Sprint 5)
+
+Ejecute **una vez** `database/sprint5_comunicacion.sql` (después de los de Sprint 2, 3 y 4). Es repetible; no borra datos.
+Los simpatizantes ya registrados quedan con el consentimiento "sin registrar": no reciben correo masivo hasta que se registre.
+
+- **Comunicación** (`/public/comunicacion/`): listas por campaña, municipio, sección, estado, consentimiento y "sin contacto desde hace X días";
+  botón de WhatsApp con el mensaje ya escrito (anota el contacto solo); correo a toda la lista (solo a quien aceptó, por tandas de 200); exportar la lista.
+- **Plantillas** (`/public/comunicacion/plantillas.php`): textos de correo y WhatsApp editables, con variables como `{{primer_nombre}}`. Los correos deben llevar `{{enlace_baja}}`.
+- **Ficha del simpatizante:** historial de llamadas, visitas y mensajes, y registro del consentimiento.
+- **Baja:** cada correo lleva un enlace personal (`/public/baja.php`); la persona confirma y queda sin mensajes. Solo un administrador puede revertirla.
+- Los correos salen por la cola existente: con la tarea cada 5 minutos se envían unos 240 por hora.
+
+## App móvil nativa
+
+El proyecto de la app (React Native + Expo) vive en la carpeta `mobile/` de este repositorio (no se sube al servidor web; el zip de despliegue la excluye). Para que funcione ejecute **una vez**
+`database/app_movil.sql` (después de los de Sprint 2 al 5): sesiones por dispositivo, temas de colonia y versión mínima.
+Para la cara ciudadana ejecute además `database/atencion_ciudadana.sql` (después de `app_movil.sql`): cuentas de ciudadanos, reportes y denuncias (con folio `CC-00001`, fotos sin metadatos y modo anónimo), eventos y avisos.
+El equipo los atiende en **Atención ciudadana** (`public/atencion/`: bandeja, detalle con cambio de estado y mensaje al ciudadano, eventos y avisos, y quienes piden sumarse).
+La API está en `public/api/app/` (login, logout, me, sincronizar, verificar, ciudadano-registro, ciudadano-me, ciudadano-cuenta, reportes, reporte-foto, seguimiento, eventos). Los temas de colonia aparecen en la ficha
+del simpatizante y en Reportes ("Lo que piden los vecinos").

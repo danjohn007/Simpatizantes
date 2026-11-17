@@ -7,55 +7,34 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/Database.php';
 require_once __DIR__ . '/../app/controllers/AuthController.php';
-require_once __DIR__ . '/../app/models/Simpatizante.php';
 require_once __DIR__ . '/../app/models/Campana.php';
+require_once __DIR__ . '/../app/services/AnaliticaService.php';
 
 $auth = new AuthController();
 $auth->requiereAutenticacion();
 
-$simpatizanteModel = new Simpatizante();
 $campanaModel = new Campana();
+$analitica = new AnaliticaService();
 
-// Obtener estadísticas
-$filtros = [];
-if ($auth->obtenerRol() === 'capturista') {
-    $filtros['capturista_id'] = $auth->obtenerUsuarioId();
-}
-
-$totalSimpatizantes = $simpatizanteModel->contarTotal($filtros);
-$campanas = $campanaModel->obtenerTodas(1);
-
-// Estadísticas recientes (últimos 30 días)
-$filtros['fecha_inicio'] = date('Y-m-d', strtotime('-30 days'));
-$totalMes = $simpatizanteModel->contarTotal($filtros);
-
-// Estadísticas por sección
-$estatsPorSeccion = $simpatizanteModel->obtenerEstadisticasPorSeccion($filtros);
-
-// Estadísticas por día (últimos 30 días) para gráfica de actividad
-$db = Database::getInstance();
-$fechaInicio = date('Y-m-d', strtotime('-30 days'));
+// Todo se limita al alcance del usuario: su campaña (o solo lo suyo si es capturista)
+$fechaInicio = date('Y-m-d', strtotime('-29 days'));
 $fechaFin = date('Y-m-d');
+$fTotal = AnaliticaService::alcance($auth, []);
+$f30 = AnaliticaService::alcance($auth, ['fecha_inicio' => $fechaInicio, 'fecha_fin' => $fechaFin]);
 
-$whereClauses = [];
-$params = [];
+$resumenTotal = $analitica->resumen($fTotal);
+$comp = $analitica->comparativo($f30);            // últimos 30 días frente a los 30 anteriores
+$totalSimpatizantes = $resumenTotal['total'];
+$totalMes = $comp['actual']['total'];
+$estatsPorSeccion = $analitica->porSeccion($fTotal, 25);
+$estatsPorDia = $analitica->porDia($f30);
+$estatus = $analitica->estatus($fTotal);
 
-if ($auth->obtenerRol() === 'capturista') {
-    $whereClauses[] = "capturista_id = ?";
-    $params[] = $auth->obtenerUsuarioId();
+$campanas = $campanaModel->obtenerTodas(1) ?: [];
+if (!$auth->puedeVerTodasLasCampanas()) {
+    $mia = (int)$auth->obtenerCampanaId();
+    $campanas = array_values(array_filter($campanas, function ($c) use ($mia) { return (int)$c['id'] === $mia; }));
 }
-
-if (!empty($whereClauses)) {
-    $whereClause = 'WHERE ' . implode(' AND ', $whereClauses) . ' AND DATE(created_at) BETWEEN ? AND ?';
-} else {
-    $whereClause = 'WHERE DATE(created_at) BETWEEN ? AND ?';
-}
-
-$sql = "SELECT DATE(created_at) as fecha, COUNT(*) as total FROM simpatizantes $whereClause GROUP BY DATE(created_at) ORDER BY fecha ASC";
-$params[] = $fechaInicio;
-$params[] = $fechaFin;
-
-$estatsPorDia = $db->query($sql, $params);
 
 $pageTitle = 'Dashboard';
 include __DIR__ . '/../app/views/layouts/header.php';
@@ -69,7 +48,10 @@ $pctMes = $totalSimpatizantes > 0 ? round(($totalMes / $totalSimpatizantes) * 10
 $topSecciones = array_slice($estatsPorSeccion, 0, 8);
 $maxSeccion = 0;
 foreach ($topSecciones as $s) { $maxSeccion = max($maxSeccion, (int)$s['total']); }
-$promSeccion = count($estatsPorSeccion) > 0 ? round($totalSimpatizantes / count($estatsPorSeccion), 1) : 0;
+$seccionesCubiertas = $resumenTotal['secciones'];
+$promSeccion = $seccionesCubiertas > 0 ? round($totalSimpatizantes / $seccionesCubiertas, 1) : 0;
+$varMes = $comp['var_total'];
+$pctValidados = $resumenTotal['pct_validados'];
 ?>
 <div class="container-fluid p-0">
     <div class="page-head">
@@ -101,7 +83,7 @@ $promSeccion = count($estatsPorSeccion) > 0 ? round($totalSimpatizantes / count(
                 <i class="bi bi-graph-up-arrow ico"></i>
                 <div class="label">Últimos 30 días</div>
                 <div class="value" data-count="<?php echo (int)$totalMes; ?>"><?php echo number_format($totalMes); ?></div>
-                <div class="hint"><?php echo $pctMes; ?>% del total acumulado</div>
+                <div class="hint"><?php if ($varMes === null): ?><?php echo $pctMes; ?>% del total acumulado<?php else: ?><span style="color:<?php echo $varMes >= 0 ? '#2f6b4a' : '#8a2f25'; ?>;font-weight:600"><i class="bi bi-arrow-<?php echo $varMes >= 0 ? 'up' : 'down'; ?>-right"></i> <?php echo ($varMes >= 0 ? '+' : '') . number_format($varMes, 1); ?>%</span> vs los 30 días anteriores<?php endif; ?></div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6">
@@ -116,8 +98,29 @@ $promSeccion = count($estatsPorSeccion) > 0 ? round($totalSimpatizantes / count(
             <div class="card kpi">
                 <i class="bi bi-geo-alt ico"></i>
                 <div class="label">Secciones cubiertas</div>
-                <div class="value" data-count="<?php echo count($estatsPorSeccion); ?>"><?php echo count($estatsPorSeccion); ?></div>
+                <div class="value" data-count="<?php echo (int)$seccionesCubiertas; ?>"><?php echo number_format($seccionesCubiertas); ?></div>
                 <div class="hint">Promedio de <?php echo $promSeccion; ?> por sección</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validación -->
+    <?php $totEst = max(1, array_sum($estatus)); ?>
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+                <strong><i class="bi bi-patch-check me-2"></i>Estado de validación</strong>
+                <a href="<?php echo BASE_URL; ?>/public/simpatizantes/?estatus=pendiente" class="small">Ver pendientes</a>
+            </div>
+            <div class="d-flex rounded overflow-hidden mb-2" style="height:14px;background:#ece6df" role="img" aria-label="Distribución por estado de validación">
+                <?php foreach ([['validado', '#2f6b4a'], ['pendiente', '#ff8000'], ['rechazado', '#8a2f25']] as $e): ?>
+                    <div style="width:<?php echo round(100 * ($estatus[$e[0]] ?? 0) / $totEst, 2); ?>%;background:<?php echo $e[1]; ?>"></div>
+                <?php endforeach; ?>
+            </div>
+            <div class="d-flex flex-wrap gap-3 small">
+                <span><i class="bi bi-circle-fill" style="color:#2f6b4a"></i> Validados <strong><?php echo number_format($estatus['validado'] ?? 0); ?></strong> (<?php echo $pctValidados; ?>%)</span>
+                <span><i class="bi bi-circle-fill" style="color:#ff8000"></i> Pendientes <strong><?php echo number_format($estatus['pendiente'] ?? 0); ?></strong></span>
+                <span><i class="bi bi-circle-fill" style="color:#8a2f25"></i> Rechazados <strong><?php echo number_format($estatus['rechazado'] ?? 0); ?></strong></span>
             </div>
         </div>
     </div>
@@ -138,7 +141,7 @@ $promSeccion = count($estatsPorSeccion) > 0 ? round($totalSimpatizantes / count(
         <div class="col-lg-8">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Simpatizantes por sección electoral</h5>
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Simpatizantes por sección electoral <span class="text-muted small fw-normal">· las 25 con más registros</span></h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-box"><canvas id="chartSecciones"></canvas></div>

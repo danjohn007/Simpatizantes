@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../helpers/validacion.php';
+require_once __DIR__ . '/../services/CacheService.php';
 
 class Simpatizante {
     private $db;
@@ -25,6 +26,39 @@ class Simpatizante {
         return $this->db->queryOne($sql, [$id]);
     }
     
+    /** Temas que una persona puede pedir mejorar en su colonia (clave => etiqueta). */
+    const TEMAS = [
+        'agua' => 'Agua', 'drenaje' => 'Drenaje', 'seguridad' => 'Seguridad', 'alumbrado' => 'Alumbrado',
+        'baches' => 'Baches y calles', 'basura' => 'Basura', 'transporte' => 'Transporte', 'salud' => 'Salud',
+        'educacion' => 'Educación', 'empleo' => 'Empleo', 'parques' => 'Parques y deporte', 'otro' => 'Otro',
+    ];
+
+    /** ¿Existe la tabla de temas? (migración database/app_movil.sql) */
+    public function tieneTemas() {
+        static $ok = null;
+        if ($ok === null) {
+            $r = $this->db->queryOne("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'simpatizante_temas'");
+            $ok = !empty($r['n']);
+        }
+        return $ok;
+    }
+
+    /** Guarda los temas de colonia de un simpatizante (solo claves válidas, sin repetir). */
+    public function guardarTemas($id, array $temas) {
+        if (!$this->tieneTemas()) { return 0; }
+        $validos = array_values(array_unique(array_filter(array_map('strval', $temas), function ($t) { return isset(self::TEMAS[$t]); })));
+        foreach ($validos as $t) {
+            $this->db->execute("INSERT IGNORE INTO simpatizante_temas (simpatizante_id, tema) VALUES (?, ?)", [(int)$id, $t]);
+        }
+        return count($validos);
+    }
+
+    /** Claves de los temas de un simpatizante. */
+    public function temasDe($id) {
+        if (!$this->tieneTemas()) { return []; }
+        return array_column($this->db->query("SELECT tema FROM simpatizante_temas WHERE simpatizante_id = ? ORDER BY tema", [(int)$id]) ?: [], 'tema');
+    }
+
     /** Estados de validación permitidos. */
     const ESTATUS = ['pendiente', 'validado', 'rechazado'];
 
@@ -59,11 +93,11 @@ class Simpatizante {
      * Condiciones WHERE compartidas por el listado, el conteo y la exportación.
      * Devuelve [cláusula, parámetros]; la tabla siempre se usa con el alias "s".
      */
-    private function condiciones($filtros) {
+    public function condiciones($filtros) {
         $where = [];
         $params = [];
 
-        foreach (['campana_id', 'capturista_id', 'seccion_electoral', 'metodo_captura'] as $campo) {
+        foreach (['campana_id', 'capturista_id', 'seccion_electoral', 'metodo_captura', 'ciudad'] as $campo) {
             if (!empty($filtros[$campo])) {
                 $where[] = "s.$campo = ?";
                 $params[] = $filtros[$campo];
@@ -180,6 +214,18 @@ class Simpatizante {
             $columnas[] = 'estatus_validacion';
             $params[] = $estatus;
         }
+        foreach (['colonia', 'comentario_colonia'] as $extra) {
+            if (!empty($datos[$extra]) && $this->tieneColumna($extra)) {
+                $columnas[] = $extra;
+                $params[] = trim((string)$datos[$extra]);
+            }
+        }
+        if (!empty($datos['consentimiento']) && $this->tieneColumna('consentimiento')) {
+            $columnas[] = 'consentimiento';
+            $params[] = 1;
+            $columnas[] = 'consentimiento_fecha';
+            $params[] = date('Y-m-d H:i:s');
+        }
         if (!empty($datos['uuid_cliente']) && $this->tieneColumna('uuid_cliente')) {
             $columnas[] = 'uuid_cliente';
             $params[] = $datos['uuid_cliente'];
@@ -190,6 +236,7 @@ class Simpatizante {
 
         if ($this->db->execute($sql, $params)) {
             $id = $this->db->lastInsertId();
+            CacheService::invalidar();
             if ($conEstatus && $estatus === 'validado') {
                 $this->registrarHistorial($id, null, 'validado', 'Validado al capturar', $datos['capturista_id'] ?? null);
             }
@@ -247,7 +294,9 @@ class Simpatizante {
             $id
         ];
 
-        return $this->db->execute($sql, $params);
+        $ok = $this->db->execute($sql, $params);
+        if ($ok) { CacheService::invalidar(); }
+        return $ok;
     }
 
     /**
@@ -255,6 +304,7 @@ class Simpatizante {
      */
     public function eliminar($id) {
         $ok = $this->db->execute("DELETE FROM simpatizantes WHERE id = ?", [$id]);
+        if ($ok) { CacheService::invalidar(); }
         if ($ok && $this->tieneEstatus()) {
             $this->db->execute("DELETE FROM simpatizantes_validaciones WHERE simpatizante_id = ?", [$id]);
         }
@@ -415,6 +465,7 @@ class Simpatizante {
             return ['error' => $this->db->describirError('cambiar el estado de validación')];
         }
         $this->db->commit();
+        CacheService::invalidar();
         return ['success' => true, 'anterior' => $actual['estatus_validacion']];
     }
 
@@ -451,105 +502,49 @@ class Simpatizante {
     }
 
     /**
-     * Obtiene datos para mapa de calor
+     * Obtiene datos para mapa de calor (hasta 20,000 puntos, los más recientes).
+     * Acepta los mismos filtros que el listado (campaña, fechas, estado, sección, ciudad…).
      */
     public function obtenerParaMapaCalor($filtros = []) {
-        $where = [];
-        $params = [];
-        
-        if (!empty($filtros['campana_id'])) {
-            $where[] = "campana_id = ?";
-            $params[] = $filtros['campana_id'];
-        }
-        
-        if (!empty($filtros['fecha_inicio'])) {
-            $where[] = "DATE(created_at) >= ?";
-            $params[] = $filtros['fecha_inicio'];
-        }
-        
-        if (!empty($filtros['fecha_fin'])) {
-            $where[] = "DATE(created_at) <= ?";
-            $params[] = $filtros['fecha_fin'];
-        }
-        
-        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-        $whereClause .= !empty($whereClause) ? ' AND ' : 'WHERE ';
-        $whereClause .= 'latitud IS NOT NULL AND longitud IS NOT NULL';
-        
-        $sql = "SELECT latitud, longitud, nombre_completo, seccion_electoral, created_at 
-                FROM simpatizantes 
-                $whereClause";
-        
+        [$whereClause, $params] = $this->condiciones($filtros);
+        $whereClause .= ($whereClause === '' ? 'WHERE ' : ' AND ') . 's.latitud IS NOT NULL AND s.longitud IS NOT NULL';
+
+        $sql = "SELECT s.latitud, s.longitud, s.nombre_completo, s.seccion_electoral, s.created_at
+                FROM simpatizantes s
+                $whereClause
+                ORDER BY s.id DESC
+                LIMIT 20000";
+
         return $this->db->query($sql, $params);
     }
-    
+
     /**
      * Obtiene estadísticas por sección electoral
      */
     public function obtenerEstadisticasPorSeccion($filtros = []) {
-        $where = [];
-        $params = [];
-        
-        if (!empty($filtros['campana_id'])) {
-            $where[] = "campana_id = ?";
-            $params[] = $filtros['campana_id'];
-        }
-        
-        if (!empty($filtros['fecha_inicio'])) {
-            $where[] = "DATE(created_at) >= ?";
-            $params[] = $filtros['fecha_inicio'];
-        }
-        
-        if (!empty($filtros['fecha_fin'])) {
-            $where[] = "DATE(created_at) <= ?";
-            $params[] = $filtros['fecha_fin'];
-        }
-        
-        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-        
-        $sql = "SELECT seccion_electoral, COUNT(*) as total 
-                FROM simpatizantes 
+        [$whereClause, $params] = $this->condiciones($filtros);
+        $sql = "SELECT s.seccion_electoral, COUNT(*) as total
+                FROM simpatizantes s
                 $whereClause
-                GROUP BY seccion_electoral
+                GROUP BY s.seccion_electoral
                 ORDER BY total DESC";
-        
         return $this->db->query($sql, $params);
     }
-    
+
     /**
      * Obtiene estadísticas por capturista
      */
     public function obtenerEstadisticasPorCapturista($filtros = []) {
-        $where = [];
-        $params = [];
-        
-        if (!empty($filtros['campana_id'])) {
-            $where[] = "s.campana_id = ?";
-            $params[] = $filtros['campana_id'];
-        }
-        
-        if (!empty($filtros['fecha_inicio'])) {
-            $where[] = "DATE(s.created_at) >= ?";
-            $params[] = $filtros['fecha_inicio'];
-        }
-        
-        if (!empty($filtros['fecha_fin'])) {
-            $where[] = "DATE(s.created_at) <= ?";
-            $params[] = $filtros['fecha_fin'];
-        }
-        
-        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-        
-        $sql = "SELECT u.nombre_completo, COUNT(s.id) as total 
+        [$whereClause, $params] = $this->condiciones($filtros);
+        $sql = "SELECT u.nombre_completo, COUNT(s.id) as total
                 FROM simpatizantes s
                 INNER JOIN usuarios u ON s.capturista_id = u.id
                 $whereClause
                 GROUP BY s.capturista_id, u.nombre_completo
                 ORDER BY total DESC";
-        
         return $this->db->query($sql, $params);
     }
-    
+
     /**
      * Verifica si existe un WhatsApp registrado
      */

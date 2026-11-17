@@ -54,14 +54,19 @@ class EmailQueue {
     /**
      * Agregar email a la cola
      */
-    public function queueEmail($to, $subject, $body, $toName = '', $priority = 5) {
+    public function queueEmail($to, $subject, $body, $toName = '', $priority = 5, $procesarAhora = true) {
         $sql = "INSERT INTO email_queue (to_email, to_name, subject, body, priority) VALUES (?, ?, ?, ?, ?)";
         
         try {
-            $this->db->execute($sql, [$to, $toName, $subject, $body, $priority]);
+            if (!$this->db->execute($sql, [$to, $toName, $subject, $body, $priority])) {
+                return false;
+            }
             
             // Procesar inmediatamente en background si es posible
-            $this->processQueueAsync();
+            // (en envíos masivos se pasa false y se dispara una sola vez al final)
+            if ($procesarAhora) {
+                $this->processQueueAsync();
+            }
             
             return true;
         } catch (Exception $e) {

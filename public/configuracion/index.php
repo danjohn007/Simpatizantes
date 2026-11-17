@@ -30,6 +30,7 @@ $configuraciones = $cargar();
 // Notas que se muestran bajo ciertos parámetros
 $notas = [
     'backup_automatico' => 'Requiere programar la tarea en el servidor (ver la tarjeta Respaldos).',
+    'reporte_semanal_activo' => 'Requiere la tarea en cPanel > Tareas Cron: 0 7 * * 1  php ' . dirname(__DIR__, 2) . '/cron/reporte_semanal.php (lunes 7:00).',
 ];
 
 // Presentación: nombre amigable y grupo de cada parámetro conocido
@@ -42,6 +43,7 @@ $meta = [
     'notificaciones_email'       => ['Notificaciones por correo', 'Notificaciones y respaldos'],
     'notificaciones_whatsapp'    => ['Notificaciones por WhatsApp', 'Notificaciones y respaldos'],
     'backup_automatico'          => ['Respaldos automáticos', 'Notificaciones y respaldos'],
+    'reporte_semanal_activo'     => ['Reporte semanal por correo (PDF)', 'Notificaciones y respaldos'],
 ];
 $ordenGrupos = ['General', 'Registro público', 'Seguridad', 'Notificaciones y respaldos', 'Otros'];
 
@@ -151,7 +153,7 @@ $grupos = array_fill_keys($ordenGrupos, []);
 $hayColores = false;
 foreach ($configuraciones as $clave => $cfg) {
     if ($cfg['tipo'] === 'color') { $hayColores = true; continue; }
-    if (strpos($clave, 'ocr_') === 0) { continue; } // función retirada
+    if (strpos($clave, 'ocr_') === 0 || $clave === 'reporte_semanal_ultimo') { continue; } // función retirada
     $grupos[$meta[$clave][1] ?? 'Otros'][] = $cfg;
 }
 

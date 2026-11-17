@@ -4,6 +4,10 @@
 # Habilitar RewriteEngine
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Que Apache entregue a PHP la cabecera Authorization (la usa la API de la app móvil)
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
     RewriteBase /
     
     # Redirigir a index.php si el archivo o directorio no existe

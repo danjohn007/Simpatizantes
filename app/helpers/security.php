@@ -53,6 +53,10 @@ function csrf_proteger() {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
         return;
     }
+    // La API de la app móvil se autentica con un token en la cabecera (no con cookies): no es vulnerable a CSRF.
+    if (defined('API_APP_TOKEN_OK')) {
+        return;
+    }
     $enviado = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
     $valido  = !empty($_SESSION['csrf_token']) && is_string($enviado)
         && hash_equals($_SESSION['csrf_token'], $enviado);

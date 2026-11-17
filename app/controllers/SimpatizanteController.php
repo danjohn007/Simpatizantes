@@ -151,6 +151,16 @@ class SimpatizanteController {
         return ['errores' => $errores, 'avisos' => $avisos, 'duplicados' => $duplicados];
     }
 
+    /** Temas de colonia de un simpatizante al que el usuario tiene acceso: [clave => etiqueta]. */
+    public function temas($id) {
+        $this->auth->requiereAutenticacion();
+        $simp = $this->model->obtenerPorId($id);
+        if (!$simp || !$this->puedeAcceder($simp)) { return []; }
+        $r = [];
+        foreach ($this->model->temasDe($id) as $t) { $r[$t] = Simpatizante::TEMAS[$t] ?? $t; }
+        return $r;
+    }
+
     /** Historial de cambios de estado de un simpatizante al que el usuario tiene acceso. */
     public function historialValidacion($id) {
         $this->auth->requiereAutenticacion();

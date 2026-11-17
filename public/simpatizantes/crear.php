@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'vigencia' => $_POST['vigencia'] ?? '',
         'seccion_electoral' => $_POST['seccion_electoral'] ?? '',
         'telefono' => $_POST['telefono'] ?? '',
+        'consentimiento' => isset($_POST['consentimiento']) ? 1 : 0,
         'whatsapp' => $_POST['whatsapp'] ?? '',
         'email' => $_POST['email'] ?? '',
         'twitter' => $_POST['twitter'] ?? '',
@@ -257,6 +258,12 @@ include __DIR__ . '/../../app/views/layouts/header.php';
                             <small class="text-muted">10 dígitos sin espacios ni guiones</small>
                         </div>
                         
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="consentimiento" value="1" id="consentimiento" <?php echo isset($_POST['consentimiento']) ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="consentimiento">La persona aceptó recibir mensajes (WhatsApp, correo o llamadas) de la campaña</label>
+                            <div class="form-text">Márquelo solo si la persona lo dijo expresamente.</div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">Email</label>
                             <input type="email" class="form-control <?php echo isset($errores['email']) ? 'is-invalid' : ''; ?>" 

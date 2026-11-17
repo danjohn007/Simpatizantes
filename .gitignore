@@ -42,3 +42,6 @@ storage/backups/*
 # Storage: archivos temporales de importación (contienen datos personales)
 storage/importaciones/*
 !storage/importaciones/.gitkeep
+
+# Caché de consultas
+storage/cache/*

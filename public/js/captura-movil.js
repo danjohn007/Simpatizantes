@@ -96,10 +96,12 @@
         var r = {};
         CAMPOS.forEach(function (n) { var el = form.elements[n]; r[n] = el ? el.value.trim() : ''; });
         var camp = form.elements.campana_id; if (camp) { r.campana_id = camp.value; }
+        r.consentimiento = (form.elements.consentimiento && form.elements.consentimiento.checked) ? '1' : '';
         return r;
     }
     function limpiar() {
         CAMPOS.forEach(function (n) { var el = form.elements[n]; if (el) { el.value = ''; } });
+        if (form.elements.consentimiento) { form.elements.consentimiento.checked = false; }
         $('calidadPanel').textContent = '';
         window.scrollTo({ top: 0, behavior: 'smooth' });
         form.elements.nombre_completo.focus();
@@ -161,6 +163,7 @@
     function corregir(it) {
         CAMPOS.forEach(function (n) { var el = form.elements[n]; if (el) { el.value = it[n] || ''; } });
         if (form.elements.campana_id && it.campana_id) { form.elements.campana_id.value = it.campana_id; }
+        if (form.elements.consentimiento) { form.elements.consentimiento.checked = it.consentimiento === '1'; }
         borrarItem(it.uuid).then(pintarCola);
         aviso('Corrija los datos y guarde de nuevo.');
         window.scrollTo({ top: 0, behavior: 'smooth' });

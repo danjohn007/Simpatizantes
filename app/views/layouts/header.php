@@ -107,6 +107,18 @@
                     </a>
                     <?php endif; ?>
                     
+                    <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], '/comunicacion/') !== false) ? 'active' : ''; ?>" 
+                       href="<?php echo BASE_URL; ?>/public/comunicacion/">
+                        <i class="bi bi-chat-dots-fill"></i>Comunicación
+                    </a>
+                    
+                    <?php if (in_array($_SESSION['rol'], ['super_admin', 'admin', 'coordinador'])): ?>
+                    <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], '/atencion/') !== false) ? 'active' : ''; ?>" 
+                       href="<?php echo BASE_URL; ?>/public/atencion/">
+                        <i class="bi bi-megaphone-fill"></i>Atención ciudadana
+                    </a>
+                    <?php endif; ?>
+                    
                     <?php if (in_array($_SESSION['rol'], ['super_admin', 'admin', 'coordinador'])): ?>
                     <a class="nav-link <?php echo (strpos($_SERVER['PHP_SELF'], '/campo/') !== false) ? 'active' : ''; ?>"
                        href="<?php echo BASE_URL; ?>/public/campo/">

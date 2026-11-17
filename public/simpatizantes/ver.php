@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/Database.php';
 require_once __DIR__ . '/../../app/controllers/AuthController.php';
 require_once __DIR__ . '/../../app/controllers/SimpatizanteController.php';
+require_once __DIR__ . '/../../app/services/ComunicacionService.php';
 
 $auth = new AuthController();
 $auth->requiereAutenticacion();
@@ -63,7 +64,26 @@ $estatusEtiqueta = ['pendiente' => 'Pendiente de validación', 'validado' => 'Va
 $estatusClase = ['pendiente' => 'pend', 'validado' => 'on', 'rechazado' => 'bad'];
 $puedeValidar = $auth->tieneRol(['super_admin', 'admin', 'coordinador']) && array_key_exists('estatus_validacion', $simpatizante);
 $historial = $controller->historialValidacion((int)$simpatizante['id']);
+$temasColonia = $controller->temas((int)$simpatizante['id']);
 $calidad = $controller->revisarCalidad($simpatizante, (int)$simpatizante['id']);
+
+// Comunicación (Sprint 5)
+$contactoModel = new Contacto();
+$comDisponible = $contactoModel->disponible();
+$historialContactos = $comDisponible ? $contactoModel->historial((int)$simpatizante['id']) : [];
+$plantillasWa = [];
+$estadoWa = ['ok' => false, 'aviso' => null];
+if ($comDisponible) {
+    $servicioCom = new ComunicacionService();
+    $estadoWa = ComunicacionService::estadoWhatsapp($simpatizante);
+    foreach ($servicioCom->plantillas('whatsapp') as $pl) {
+        $url = ComunicacionService::enlaceWhatsapp($simpatizante, ComunicacionService::render($pl['cuerpo'], $simpatizante, ['capturista' => $_SESSION['nombre_completo'] ?? '']));
+        if ($url) { $plantillasWa[] = ['clave' => $pl['clave'], 'nombre' => $pl['nombre'], 'url' => $url]; }
+    }
+}
+$consentimientoActual = !array_key_exists('consentimiento', $simpatizante) ? null : $simpatizante['consentimiento'];
+$enBaja = !empty($simpatizante['baja_comunicacion']);
+$puedeRevertirBaja = $auth->tieneRol(['super_admin', 'admin']);
 
 $puedeEditar = in_array($auth->obtenerRol(), ['super_admin', 'admin', 'coordinador'])
     || ($auth->obtenerRol() === 'capturista' && $simpatizante['capturista_id'] == $auth->obtenerUsuarioId());
@@ -173,6 +193,14 @@ foreach ([['ine_frontal', 'INE frontal', false], ['ine_posterior', 'INE reverso'
                         <div><dt>Método de captura</dt><?php echo $dd(isset($metodos[$simpatizante['metodo_captura'] ?? '']) ? $metodos[$simpatizante['metodo_captura']] : $e('metodo_captura')); ?></div>
                         <div><dt>Fecha de registro</dt><?php echo $dd($fecha('created_at', true)); ?></div>
                         <div><dt>Última actualización</dt><?php echo $dd($fecha('updated_at', true)); ?></div>
+                        <?php if ($temasColonia || !empty($simpatizante['comentario_colonia']) || !empty($simpatizante['colonia'])): ?>
+                        <div class="full"><dt>Lo que quiere mejorar en su colonia<?php echo !empty($simpatizante['colonia']) ? ' (' . htmlspecialchars($simpatizante['colonia']) . ')' : ''; ?></dt>
+                            <dd>
+                                <?php foreach ($temasColonia as $et): ?><span class="sec-pill me-1"><?php echo htmlspecialchars($et); ?></span><?php endforeach; ?>
+                                <?php if (!empty($simpatizante['comentario_colonia'])): ?><div class="mt-1"><?php echo nl2br(htmlspecialchars($simpatizante['comentario_colonia'])); ?></div><?php endif; ?>
+                            </dd>
+                        </div>
+                        <?php endif; ?>
                         <div class="full"><dt>Observaciones</dt>
                             <?php echo !empty($simpatizante['observaciones']) ? '<dd>' . nl2br(htmlspecialchars($simpatizante['observaciones'])) . '</dd>' : '<dd class="empty">Sin observaciones</dd>'; ?>
                         </div>
@@ -259,6 +287,91 @@ foreach ([['ine_frontal', 'INE frontal', false], ['ine_posterior', 'INE reverso'
             </div>
         </div>
 
+        <!-- Contactos y comunicación -->
+        <div class="col-12" id="contactos">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Contactos y comunicación</h5>
+                    <?php if ($comDisponible): ?>
+                        <?php if ($enBaja): ?><span class="status-pill bad">Pidió no recibir mensajes</span>
+                        <?php elseif ($consentimientoActual === null): ?><span class="status-pill pend">Consentimiento sin registrar</span>
+                        <?php elseif ((int)$consentimientoActual === 1): ?><span class="status-pill on">Aceptó recibir mensajes</span>
+                        <?php else: ?><span class="status-pill bad">No acepta mensajes</span><?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <div class="card-body">
+                <?php if (!$comDisponible): ?>
+                    <p class="text-muted mb-0">Falta ejecutar <code>database/sprint5_comunicacion.sql</code> para activar los contactos y el consentimiento.</p>
+                <?php else: ?>
+                    <div class="row g-4">
+                        <div class="col-lg-5">
+                            <!-- WhatsApp -->
+                            <h6 class="small text-uppercase text-muted mb-2" style="letter-spacing:.08em">Escribir por WhatsApp</h6>
+                            <?php if ($plantillasWa && $estadoWa['ok']): ?>
+                                <div class="d-flex flex-wrap gap-2 mb-1">
+                                    <select class="form-select form-select-sm" id="waPlantilla" style="width:auto">
+                                        <?php foreach ($plantillasWa as $pl): ?><option value="<?php echo htmlspecialchars($pl['clave']); ?>" data-url="<?php echo htmlspecialchars($pl['url']); ?>"><?php echo htmlspecialchars($pl['nombre']); ?></option><?php endforeach; ?>
+                                    </select>
+                                    <a id="waBtn" class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="<?php echo htmlspecialchars($plantillasWa[0]['url']); ?>"><i class="bi bi-whatsapp me-1" style="color:#1f8f4e"></i>Abrir WhatsApp</a>
+                                </div>
+                                <?php if ($estadoWa['aviso']): ?><div class="small" style="color:#b85400"><i class="bi bi-exclamation-triangle me-1"></i><?php echo htmlspecialchars($estadoWa['aviso']); ?>. Confirme con la persona antes de escribirle.</div><?php endif; ?>
+                            <?php else: ?>
+                                <p class="small text-muted mb-0"><?php echo !$estadoWa['ok'] ? htmlspecialchars($estadoWa['aviso']) . '.' : 'No tiene un número de 10 dígitos registrado.'; ?></p>
+                            <?php endif; ?>
+
+                            <!-- Consentimiento -->
+                            <h6 class="small text-uppercase text-muted mt-4 mb-2" style="letter-spacing:.08em">Consentimiento para recibir mensajes</h6>
+                            <?php if ($enBaja): ?>
+                                <p class="small mb-2">La persona se dio de baja. No se le deben enviar mensajes.</p>
+                                <?php if ($puedeRevertirBaja): ?>
+                                <form method="POST" action="<?php echo BASE_URL; ?>/public/comunicacion/contacto.php" onsubmit="return confirm('¿Revertir la baja? Hágalo solo si la persona lo pidió expresamente.');">
+                                    <?php echo csrf_field(); ?><input type="hidden" name="id" value="<?php echo (int)$simpatizante['id']; ?>"><input type="hidden" name="accion" value="revertir_baja">
+                                    <button class="btn btn-soft btn-sm">Revertir baja</button>
+                                </form>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <form method="POST" action="<?php echo BASE_URL; ?>/public/comunicacion/contacto.php" class="d-flex flex-wrap gap-2">
+                                    <?php echo csrf_field(); ?><input type="hidden" name="id" value="<?php echo (int)$simpatizante['id']; ?>"><input type="hidden" name="accion" value="consentimiento">
+                                    <button name="valor" value="si" class="btn btn-soft btn-sm"><i class="bi bi-check2 me-1"></i>Aceptó recibir mensajes</button>
+                                    <button name="valor" value="no" class="btn btn-soft btn-sm"><i class="bi bi-x me-1"></i>No desea recibirlos</button>
+                                </form>
+                                <?php if (!empty($simpatizante['consentimiento_fecha'])): ?><div class="small text-muted mt-1">Registrado el <?php echo date('d/m/Y', strtotime($simpatizante['consentimiento_fecha'])); ?></div><?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="col-lg-7">
+                            <h6 class="small text-uppercase text-muted mb-2" style="letter-spacing:.08em">Registrar un contacto</h6>
+                            <form method="POST" action="<?php echo BASE_URL; ?>/public/comunicacion/contacto.php" class="row g-2 mb-3">
+                                <?php echo csrf_field(); ?><input type="hidden" name="id" value="<?php echo (int)$simpatizante['id']; ?>"><input type="hidden" name="accion" value="registrar">
+                                <div class="col-sm-4"><select class="form-select form-select-sm" name="canal" required>
+                                    <?php foreach (Contacto::CANALES as $k => $t): ?><option value="<?php echo $k; ?>"><?php echo $t; ?></option><?php endforeach; ?></select></div>
+                                <div class="col-sm-4"><select class="form-select form-select-sm" name="resultado" required>
+                                    <?php foreach (['contesto', 'no_contesto', 'interesado', 'no_interesado', 'volver_a_llamar', 'otro'] as $k): ?><option value="<?php echo $k; ?>"><?php echo Contacto::RESULTADOS[$k]; ?></option><?php endforeach; ?></select></div>
+                                <div class="col-sm-4"><button class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Registrar</button></div>
+                                <div class="col-12"><input type="text" class="form-control form-control-sm" name="nota" maxlength="500" placeholder="Nota (opcional): qué se habló, qué quedó pendiente…"></div>
+                            </form>
+
+                            <h6 class="small text-uppercase text-muted mb-2" style="letter-spacing:.08em">Historial</h6>
+                            <?php if (empty($historialContactos)): ?>
+                                <p class="small text-muted mb-0">Aún no hay contactos registrados.</p>
+                            <?php else: ?>
+                                <ul class="hist-list">
+                                <?php foreach ($historialContactos as $h): ?>
+                                    <li>
+                                        <div><strong><?php echo htmlspecialchars(Contacto::CANALES[$h['canal']] ?? $h['canal']); ?></strong> · <?php echo htmlspecialchars(Contacto::RESULTADOS[$h['resultado']] ?? $h['resultado']); ?></div>
+                                        <div class="quien"><?php echo htmlspecialchars($h['usuario_nombre'] ?? 'La propia persona'); ?> · <?php echo date('d/m/Y H:i', strtotime($h['created_at'])); ?></div>
+                                        <?php if (!empty($h['nota'])): ?><div class="motivo"><?php echo htmlspecialchars($h['nota']); ?></div><?php endif; ?>
+                                    </li>
+                                <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
         <!-- Documentos -->
         <?php if (!empty($archivos)): ?>
         <div class="col-12">
@@ -283,4 +396,20 @@ foreach ([['ine_frontal', 'INE frontal', false], ['ine_posterior', 'INE reverso'
     </div>
 </div>
 
+<?php if ($comDisponible && $plantillasWa && $estadoWa['ok']): ?>
+<script>
+(function () {
+    var sel = document.getElementById('waPlantilla'), btn = document.getElementById('waBtn');
+    if (!sel || !btn) return;
+    sel.addEventListener('change', function () { btn.href = sel.selectedOptions[0].dataset.url; });
+    btn.addEventListener('click', function () {
+        fetch(<?php echo json_encode(BASE_URL . '/public/api/registrar-contacto.php'); ?>, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': <?php echo json_encode(csrf_token()); ?>, 'Accept': 'application/json' },
+            body: JSON.stringify({ simpatizante_id: <?php echo (int)$simpatizante['id']; ?>, canal: 'whatsapp', resultado: 'enviado', plantilla: sel.value })
+        }).then(function () { setTimeout(function () { location.reload(); }, 1200); }).catch(function () {});
+    });
+})();
+</script>
+<?php endif; ?>
 <?php include __DIR__ . '/../../app/views/layouts/footer.php'; ?>
